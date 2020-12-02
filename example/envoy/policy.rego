@@ -22,13 +22,13 @@ is_token_valid {
 }
 
 action_allowed {
-  http_request.method == "GET"
+  http_request.blah.method == "GET"
   token.payload.role == "guest"
   glob.match("/people*", [], http_request.path)
 }
 
 action_allowed {
-  http_request.blah.method == "GET"
+  http_request.method == "GET"
   token.payload.role == "admin"
   glob.match("/people*", [], http_request.path)
 }
