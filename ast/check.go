@@ -27,6 +27,7 @@ type typeChecker struct {
 	errs         Errors
 	exprCheckers map[string]exprChecker
 	varRewriter  rewriteVars
+	schemaStore  interface{}
 }
 
 // newTypeChecker returns a new typeChecker object that has no errors.
@@ -40,6 +41,11 @@ func newTypeChecker() *typeChecker {
 
 func (tc *typeChecker) WithVarRewriter(f rewriteVars) *typeChecker {
 	tc.varRewriter = f
+	return tc
+}
+
+func (tc *typeChecker) WithSchemas(schemas interface{}) *typeChecker {
+	tc.schemaStore = schemas
 	return tc
 }
 
@@ -146,12 +152,37 @@ func (tc *typeChecker) checkLanguageBuiltins(env *TypeEnv, builtins map[string]*
 	return env
 }
 
-func (tc *typeChecker) checkRule(env *TypeEnv, rule *Rule) {
-	// MV - If rule has a schema annotation, then process the schema and add it to TypeEnv
-	if rule.Annotation != nil {
-		fmt.Printf("%v", rule.Annotation)
+func (tc *typeChecker) getSchema(schemaPath string) (interface{}, error) {
+	path := strings.Split(schemaPath, ".")
+	schema := tc.schemaStore
+	for _, p := range path {
+		schemaMap, ok := schema.(map[string]interface{})
+		if !ok {
+			return nil, fmt.Errorf("Problem processing schema")
+		}
+		schema = schemaMap[p]
 	}
-	// MV
+	return schema, nil
+}
+
+func (tc *typeChecker) checkRule(env *TypeEnv, rule *Rule) {
+	// If rule has a schema annotation, then process the schema and add it to TypeEnv
+	// Annotations are of the form: #@rulesSchema=input:data.schemas.input-schema and must immediately precede the rule definition
+	// TODO: in the future we should also support #@rulesSchema=data.XYZ:data.schemas.input-schema
+	if rule.Annotation != nil {
+		errors := []*Error{}
+		schema, err := tc.getSchema(rule.Annotation.Schema)
+		if err != nil {
+			errors = append(errors, NewError(TypeErr, rule.Location, err.Error()))
+		}
+		staticProps, err := parseSchemaInterface(schema)
+		if err == nil {
+			env.tree.PutOne(VarTerm(rule.Annotation.Name).Value, types.NewObject(staticProps, nil))
+			defer env.tree.DeleteKey(VarTerm(rule.Annotation.Name).Value)
+		} else {
+			errors = append(errors, NewError(TypeErr, rule.Location, err.Error()))
+		}
+	}
 
 	cpy, err := tc.CheckBody(env, rule.Body)
 

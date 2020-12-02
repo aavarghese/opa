@@ -103,12 +103,17 @@ type Compiler struct {
 	unsafeBuiltinsMap    map[string]struct{}           // user-supplied set of unsafe built-ins functions to block (deprecated: use capabilities)
 	comprehensionIndices map[*Term]*ComprehensionIndex // comprehension key index
 	initialized          bool                          // indicates if init() has been called
+<<<<<<< HEAD
 	schemaSet            *SchemaSet
 }
 
 // SchemaSet holds a map from a path to a schema
 type SchemaSet struct {
 	ByPath map[string]interface{}
+=======
+	schema               interface{}                   // input schema
+	schemaStore          interface{}                   // schema store
+>>>>>>> 5e4c657c... Processing schema annotations
 }
 
 // CompilerStage defines the interface for stages in the compiler.
@@ -302,6 +307,13 @@ func (c *Compiler) WithStageAfter(after string, stage CompilerStageDefinition) *
 // the Compiler instance.
 func (c *Compiler) WithMetrics(metrics metrics.Metrics) *Compiler {
 	c.metrics = metrics
+	return c
+}
+
+// WithSchemaStore will set the schema store for
+// the Compiler instance.
+func (c *Compiler) WithSchemaStore(schemas interface{}) *Compiler {
+	c.schemaStore = schemas
 	return c
 }
 
@@ -962,9 +974,18 @@ func (c *Compiler) setInputType() {
 func (c *Compiler) checkTypes() {
 	// Recursion is caught in earlier step, so this cannot fail.
 	sorted, _ := c.Graph.Sort()
-	checker := newTypeChecker().WithVarRewriter(rewriteVarsInRef(c.RewrittenVars))
+	checker := newTypeChecker().WithVarRewriter(rewriteVarsInRef(c.RewrittenVars)).WithSchemas(c.schemaStore)
 
+<<<<<<< HEAD
 	c.setInputType()
+=======
+	if c.schema != nil {
+		err := c.setTypesWithSchema(c.schema) //NEW TYPE CHECKING WITH SCHEMA
+		if err != nil {
+			c.err(NewError(TypeErr, nil, err.Error()))
+		}
+	}
+>>>>>>> 5e4c657c... Processing schema annotations
 
 	env, errs := checker.CheckTypes(c.TypeEnv, sorted)
 	for _, err := range errs {
@@ -1650,9 +1671,21 @@ func (qc *queryCompiler) checkSafety(_ *QueryContext, body Body) (Body, error) {
 
 func (qc *queryCompiler) checkTypes(qctx *QueryContext, body Body) (Body, error) {
 	var errs Errors
+<<<<<<< HEAD
 	checker := newTypeChecker().WithVarRewriter(rewriteVarsInRef(qc.rewritten, qc.compiler.RewrittenVars))
 
 	qc.compiler.setInputType()
+=======
+	sorted, _ := qc.compiler.Graph.Sort()
+	checker := newTypeChecker().WithVarRewriter(rewriteVarsInRef(qc.rewritten, qc.compiler.RewrittenVars)).WithSchemas(qc.compiler.schemaStore)
+
+	if qc.compiler.schema != nil {
+		err := qc.compiler.setTypesWithSchema(qc.compiler.schema) //NEW TYPE CHECKING WITH SCHEMA
+		if err != nil {
+			qc.compiler.err(NewError(TypeErr, nil, err.Error()))
+		}
+	}
+>>>>>>> 5e4c657c... Processing schema annotations
 
 	qc.typeEnv, errs = checker.CheckBody(qc.compiler.TypeEnv, body)
 	if len(errs) > 0 {
