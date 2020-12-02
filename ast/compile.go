@@ -102,7 +102,8 @@ type Compiler struct {
 	unsafeBuiltinsMap    map[string]struct{}           // user-supplied set of unsafe built-ins functions to block (deprecated: use capabilities)
 	comprehensionIndices map[*Term]*ComprehensionIndex // comprehension key index
 	initialized          bool                          // indicates if init() has been called
-	schema               interface{}
+	schema               interface{}                   // input schema
+	schemaStore          interface{}                   // schema store
 }
 
 // CompilerStage defines the interface for stages in the compiler.
@@ -296,6 +297,13 @@ func (c *Compiler) WithStageAfter(after string, stage CompilerStageDefinition) *
 // the Compiler instance.
 func (c *Compiler) WithMetrics(metrics metrics.Metrics) *Compiler {
 	c.metrics = metrics
+	return c
+}
+
+// WithSchemaStore will set the schema store for
+// the Compiler instance.
+func (c *Compiler) WithSchemaStore(schemas interface{}) *Compiler {
+	c.schemaStore = schemas
 	return c
 }
 
@@ -850,7 +858,23 @@ func (c *Compiler) checkSafetyRuleHeads() {
 	}
 }
 
-func (c *Compiler) parseSchemaInterface(properties map[string]interface{}) []*types.StaticProperty { //NEW TYPE CHECKING FUNCTION
+func parseSchemaInterface(schema interface{}) ([]*types.StaticProperty, error) {
+	schemaMap, ok := schema.(map[string]interface{})
+	if !ok {
+		return nil, fmt.Errorf("unexpected schema type %v", schema)
+	}
+
+	if schemaMap["type"].(string) == "object" {
+		properties, ok := schemaMap["properties"].(map[string]interface{})
+		if !ok {
+			return nil, fmt.Errorf("unexpected schema type %v", schema)
+		}
+		return parseSchemaInterfaceRec(properties), nil
+	}
+	return nil, fmt.Errorf("unexpected schema type %v", schema)
+}
+
+func parseSchemaInterfaceRec(properties map[string]interface{}) []*types.StaticProperty { //NEW TYPE CHECKING FUNCTION
 	//Traverse through c.schema and put appropriate types in TypeEnv
 
 	staticProps := make([]*types.StaticProperty, 0, len(properties))
@@ -861,7 +885,7 @@ func (c *Compiler) parseSchemaInterface(properties map[string]interface{}) []*ty
 			var typeAdd types.Type
 			items := valueMap["items"].(map[string]interface{})
 			if items["type"].(string) == "object" {
-				typeAdd = types.NewObject(c.parseSchemaInterface(items["properties"].(map[string]interface{})), nil)
+				typeAdd = types.NewObject(parseSchemaInterfaceRec(items["properties"].(map[string]interface{})), nil)
 			} else if items["type"].(string) == "string" {
 				//fmt.Println("String type")
 				typeAdd = types.S
@@ -887,7 +911,7 @@ func (c *Compiler) parseSchemaInterface(properties map[string]interface{}) []*ty
 		} else if valueMap["type"].(string) == "object" {
 			properties, ok := valueMap["properties"].(map[string]interface{})
 			if ok {
-				value = types.NewObject(c.parseSchemaInterface(properties), nil)
+				value = types.NewObject(parseSchemaInterfaceRec(properties), nil)
 			}
 		} //TODO: More types to implement
 
@@ -896,20 +920,12 @@ func (c *Compiler) parseSchemaInterface(properties map[string]interface{}) []*ty
 	return staticProps
 }
 
-func (c *Compiler) setTypesWithSchema(schema interface{}) *Error { //NEW TYPE CHECKING FUNCTION
-	schemaMap, ok := schema.(map[string]interface{})
-	if !ok {
-		return NewError(TypeErr, nil, "unexpected schema type %v", schema)
+func (c *Compiler) setTypesWithSchema(schema interface{}) error { //NEW TYPE CHECKING FUNCTION
+	staticProps, err := parseSchemaInterface(schema)
+	if err != nil {
+		return err
 	}
-
-	if schemaMap["type"].(string) == "object" {
-		properties, ok := schemaMap["properties"].(map[string]interface{})
-		if !ok {
-			return NewError(TypeErr, nil, "unexpected schema type %v", schema)
-		}
-		staticProps := c.parseSchemaInterface(properties)
-		c.TypeEnv.tree.PutOne(VarTerm("input").Value, types.NewObject(staticProps, nil))
-	}
+	c.TypeEnv.tree.PutOne(VarTerm("input").Value, types.NewObject(staticProps, nil))
 	return nil
 }
 
@@ -918,12 +934,12 @@ func (c *Compiler) setTypesWithSchema(schema interface{}) *Error { //NEW TYPE CH
 func (c *Compiler) checkTypes() {
 	// Recursion is caught in earlier step, so this cannot fail.
 	sorted, _ := c.Graph.Sort()
-	checker := newTypeChecker().WithVarRewriter(rewriteVarsInRef(c.RewrittenVars))
+	checker := newTypeChecker().WithVarRewriter(rewriteVarsInRef(c.RewrittenVars)).WithSchemas(c.schemaStore)
 
 	if c.schema != nil {
 		err := c.setTypesWithSchema(c.schema) //NEW TYPE CHECKING WITH SCHEMA
 		if err != nil {
-			c.err(err)
+			c.err(NewError(TypeErr, nil, err.Error()))
 		}
 	}
 
@@ -1613,12 +1629,12 @@ func (qc *queryCompiler) checkSafety(_ *QueryContext, body Body) (Body, error) {
 func (qc *queryCompiler) checkTypes(qctx *QueryContext, body Body) (Body, error) {
 	var errs Errors
 	sorted, _ := qc.compiler.Graph.Sort()
-	checker := newTypeChecker().WithVarRewriter(rewriteVarsInRef(qc.rewritten, qc.compiler.RewrittenVars))
+	checker := newTypeChecker().WithVarRewriter(rewriteVarsInRef(qc.rewritten, qc.compiler.RewrittenVars)).WithSchemas(qc.compiler.schemaStore)
 
 	if qc.compiler.schema != nil {
 		err := qc.compiler.setTypesWithSchema(qc.compiler.schema) //NEW TYPE CHECKING WITH SCHEMA
 		if err != nil {
-			qc.compiler.err(err)
+			qc.compiler.err(NewError(TypeErr, nil, err.Error()))
 		}
 	}
 
