@@ -1,6 +1,6 @@
 package kubernetes.admission                                                # line 1
 
-#@rulesSchema=input:data.schemas.admissionreview
+#@rulesSchema=input:data.schemas.admission-schema
 deny[msg] {                                                                 # line 2
   input.request.kind.kind == "Pod"                                          # line 3
   image := input.request.object.spec.containers[_].image                    # line 4
