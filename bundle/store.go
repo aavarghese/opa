@@ -485,6 +485,10 @@ func writeModules(ctx context.Context, store storage.Store, txn storage.Transact
 		}
 	}
 
+	schemas, err := store.Read(ctx, txn, storage.MustParsePath("/schemas")) //MV
+	if err == nil {
+		compiler = compiler.WithSchemaStore(schemas)
+	}
 	if schema != nil {
 		if compiler.CompileWithSchema(modules, schema); compiler.Failed() { //AAV
 			return compiler.Errors

@@ -78,6 +78,7 @@ func (p *Parser) WithReader(r io.Reader) *Parser {
 }
 
 const schemaAnnot = "@rulesSchema="
+const schemaPrefix = "data.schemas."
 
 // getAnnotation
 // MV - Returns a comment appearing at that line if any
@@ -88,8 +89,9 @@ func (p *Parser) getAnnotation(line int) *SchemaAnnotation {
 			if strings.HasPrefix(text, schemaAnnot) {
 				annot := strings.TrimPrefix(text, schemaAnnot)
 				segs := strings.Split(annot, ":")
+				schema := strings.TrimPrefix(segs[1], schemaPrefix)
 				if len(segs) == 2 {
-					return &SchemaAnnotation{Name: segs[0], Schema: segs[1]}
+					return &SchemaAnnotation{Name: segs[0], Schema: schema}
 				}
 			}
 		}

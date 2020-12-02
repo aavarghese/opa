@@ -12,6 +12,8 @@ package example
 #     server := input.servers[_]                      # it exists in the input.servers collection and...
 #     server.protocols[_] == "telnet"                 # it contains the "telnet" protocol.
 # }
+
+#@rulesSchema=input:data.schemas.input-schema
 public_server[server] {                             # a server exists in the public_server set if...
     some i, j
     server := input.servers[_]                    # it exists in the input.servers collection and...
@@ -23,3 +25,4 @@ public_server[server] {                             # a server exists in the pub
     #input.servers[_].id
     #input.servers[_].blah
 }
+
