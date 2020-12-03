@@ -5,14 +5,15 @@
 VERSION := $(shell ./build/get-build-version.sh)
 
 CGO_ENABLED ?= 1
-WASMER_ENABLED ?= 1
+WASM_ENABLED ?= 1
 
 # Force modules on and to use the vendor directory.
 GO := CGO_ENABLED=$(CGO_ENABLED) GO111MODULE=on GOFLAGS=-mod=vendor go
+GO_TEST_TIMEOUT := -timeout 30m
 
 GO_TAGS := -tags=
-ifeq ($(WASMER_ENABLED),1)
-GO_TAGS = -tags=opa_wasmer
+ifeq ($(WASM_ENABLED),1)
+GO_TAGS = -tags=opa_wasm
 endif
 
 GOVERSION := $(shell cat ./.go-version)
@@ -64,7 +65,7 @@ LDFLAGS := "$(TELEMETRY_FLAG) \
 
 # If you update the 'all' target make sure the 'ci-release-test' target is consistent.
 .PHONY: all
-all: build test perf check
+all: build test perf wasm-sdk-e2e-test check
 
 .PHONY: version
 version:
@@ -106,7 +107,11 @@ test-coverage: generate
 
 .PHONY: perf
 perf: generate
-	$(GO) test $(GO_TAGS) -run=- -bench=. -benchmem ./...
+	$(GO) test $(GO_TAGS),slow $(GO_TEST_TIMEOUT) -run=- -bench=. -benchmem ./...
+
+.PHONY: wasm-sdk-e2e-test
+wasm-sdk-e2e-test: generate
+	$(GO) test $(GO_TAGS),slow,wasm_sdk_e2e $(GO_TEST_TIMEOUT) -v ./internal/wasm/sdk/test/e2e
 
 .PHONY: check
 check: check-fmt check-vet check-lint
@@ -216,7 +221,7 @@ CI_GOLANG_DOCKER_MAKE := $(DOCKER) run \
 	-w /src \
 	-e GOCACHE=/src/.go/cache \
 	-e CGO_ENABLED=$(CGO_ENABLED) \
-	-e WASMER_ENABLED=$(WASMER_ENABLED) \
+	-e WASM_ENABLED=$(WASM_ENABLED) \
 	-e FUZZ_TIME=$(FUZZ_TIME) \
 	-e TELEMETRY_URL=$(TELEMETRY_URL) \
 	golang:$(GOVERSION) \
@@ -228,7 +233,7 @@ ci-go-%: generate
 
 .PHONY: ci-release-test
 ci-release-test: generate
-	$(CI_GOLANG_DOCKER_MAKE) test perf check
+	$(CI_GOLANG_DOCKER_MAKE) test perf wasm-sdk-e2e-test check
 
 .PHONY: ci-check-working-copy
 ci-check-working-copy: generate
@@ -243,17 +248,17 @@ build-docker: ensure-release-dir
 
 .PHONY: build-linux
 build-linux: ensure-release-dir
-	@$(MAKE) build GOOS=linux CGO_ENABLED=0 WASMER_ENABLED=0
+	@$(MAKE) build GOOS=linux CGO_ENABLED=0 WASM_ENABLED=0
 	mv opa_linux_$(GOARCH) $(RELEASE_DIR)/
 
 .PHONY: build-darwin
 build-darwin: ensure-release-dir
-	@$(MAKE) build GOOS=darwin CGO_ENABLED=0 WASMER_ENABLED=0
+	@$(MAKE) build GOOS=darwin CGO_ENABLED=0 WASM_ENABLED=0
 	mv opa_darwin_$(GOARCH) $(RELEASE_DIR)/
 
 .PHONY: build-windows
 build-windows: ensure-release-dir
-	@$(MAKE) build GOOS=windows CGO_ENABLED=0 WASMER_ENABLED=0
+	@$(MAKE) build GOOS=windows CGO_ENABLED=0 WASM_ENABLED=0
 	mv opa_windows_$(GOARCH) $(RELEASE_DIR)/opa_windows_$(GOARCH).exe
 
 .PHONY: ensure-release-dir
