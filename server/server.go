@@ -76,7 +76,6 @@ const (
 	PromHandlerV1Query    = "v1/query"
 	PromHandlerV1Policies = "v1/policies"
 	PromHandlerV1Compile  = "v1/compile"
-	PromHandlerV1Schema   = "v1/schema"
 	PromHandlerIndex      = "index"
 	PromHandlerCatch      = "catchall"
 	PromHandlerHealth     = "health"
@@ -630,10 +629,6 @@ func (s *Server) initRouters() {
 	s.registerHandler(mainRouter, 1, "/query", http.MethodGet, s.instrumentHandler(s.v1QueryGet, PromHandlerV1Query))
 	s.registerHandler(mainRouter, 1, "/query", http.MethodPost, s.instrumentHandler(s.v1QueryPost, PromHandlerV1Query))
 	s.registerHandler(mainRouter, 1, "/compile", http.MethodPost, s.instrumentHandler(s.v1CompilePost, PromHandlerV1Compile))
-	s.registerHandler(mainRouter, 1, "/schema/{path:.+}", http.MethodGet, s.instrumentHandler(s.v1SchemaGet, PromHandlerV1Schema))
-	s.registerHandler(mainRouter, 1, "/schema", http.MethodGet, s.instrumentHandler(s.v1SchemaGet, PromHandlerV1Schema))
-	s.registerHandler(mainRouter, 1, "/schema/{path:.+}", http.MethodPost, s.instrumentHandler(s.v1SchemaPost, PromHandlerV1Schema))
-	s.registerHandler(mainRouter, 1, "/schema", http.MethodPost, s.instrumentHandler(s.v1SchemaPost, PromHandlerV1Schema))
 	mainRouter.Handle("/", s.instrumentHandler(s.unversionedPost, PromHandlerIndex)).Methods(http.MethodPost)
 	mainRouter.Handle("/", s.instrumentHandler(s.indexGet, PromHandlerIndex)).Methods(http.MethodGet)
 
@@ -660,11 +655,6 @@ func (s *Server) initRouters() {
 		http.MethodConnect, http.MethodDelete, http.MethodOptions, http.MethodTrace, http.MethodPost, http.MethodPut, http.MethodPatch)
 	mainRouter.Handle("/v1/query", s.instrumentHandler(writer.HTTPStatus(405), PromHandlerCatch)).Methods(http.MethodHead,
 		http.MethodConnect, http.MethodDelete, http.MethodOptions, http.MethodTrace, http.MethodPut, http.MethodPatch)
-	// v1 Schema catch all
-	mainRouter.Handle("/v1/schema/{path:.*}", s.instrumentHandler(writer.HTTPStatus(405), PromHandlerCatch)).Methods(http.MethodHead,
-		http.MethodConnect, http.MethodOptions, http.MethodTrace)
-	mainRouter.Handle("/v1/schema", s.instrumentHandler(writer.HTTPStatus(405), PromHandlerCatch)).Methods(http.MethodHead,
-		http.MethodConnect, http.MethodDelete, http.MethodOptions, http.MethodTrace)
 	s.Handler = mainRouter
 	s.DiagnosticHandler = diagRouter
 }
@@ -757,7 +747,6 @@ func (s *Server) indexGet(w http.ResponseWriter, r *http.Request) {
 	values := r.URL.Query()
 	qStrs := values[types.ParamQueryV1]
 	inputStrs := values[types.ParamInputV1]
-	schemaStrs := values[types.ParamSchemaV1]
 
 	explainMode := getExplain(r.URL.Query()[types.ParamExplainV1], types.ExplainOffV1)
 	ctx := r.Context()
@@ -781,16 +770,6 @@ func (s *Server) indexGet(w http.ResponseWriter, r *http.Request) {
 		input = t.Value
 	}
 
-	var schema ast.Value
-	if len(schemaStrs) > 0 && len(schemaStrs[len(qStrs)-1]) > 0 {
-		t, err := ast.ParseTerm(schemaStrs[len(qStrs)-1])
-		if err != nil {
-			renderQueryResult(w, nil, err, t0)
-			return
-		}
-		schema = t.Value
-	}
-
 	parsedQuery, _ := validateQuery(qStr)
 
 	txn, err := s.store.NewTransaction(ctx)
@@ -801,7 +780,7 @@ func (s *Server) indexGet(w http.ResponseWriter, r *http.Request) {
 
 	defer s.store.Abort(ctx, txn)
 
-	results, err := s.execQuery(ctx, r, txn, decisionID, parsedQuery, input, nil, explainMode, false, false, true, schema)
+	results, err := s.execQuery(ctx, r, txn, decisionID, parsedQuery, input, nil, explainMode, false, false, true, nil)
 	if err != nil {
 		renderQueryResult(w, nil, err, t0)
 		return
@@ -1639,306 +1618,6 @@ func (s *Server) v1DataDelete(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-//TODO: Remove if not needed
-func (s *Server) v1SchemaGet(w http.ResponseWriter, r *http.Request) {
-	m := metrics.New()
-
-	m.Timer(metrics.ServerHandler).Start()
-
-	decisionID := s.generateDecisionID()
-
-	ctx := r.Context()
-	vars := mux.Vars(r)
-	urlPath := vars["path"]
-	pretty := getBoolParam(r.URL, types.ParamPrettyV1, true)
-	explainMode := getExplain(r.URL.Query()["explain"], types.ExplainOffV1)
-	includeMetrics := getBoolParam(r.URL, types.ParamMetricsV1, true)
-	includeInstrumentation := getBoolParam(r.URL, types.ParamInstrumentV1, true)
-	provenance := getBoolParam(r.URL, types.ParamProvenanceV1, true)
-	strictBuiltinErrors := getBoolParam(r.URL, types.ParamStrictBuiltinErrors, true)
-
-	m.Timer(metrics.RegoInputParse).Start()
-
-	schemas := r.URL.Query()[types.ParamSchemaV1]
-	var schema interface{}
-	if len(schemas) > 0 {
-		var err error
-		schema, err = readSchemaGetV1(schemas[len(schemas)-1])
-		if err != nil {
-			writer.ErrorString(w, http.StatusBadRequest, types.CodeInvalidParameter, err)
-			return
-		}
-	}
-
-	m.Timer(metrics.RegoInputParse).Stop()
-
-	// Prepare for query.
-	txn, err := s.store.NewTransaction(ctx)
-	if err != nil {
-		writer.ErrorAuto(w, err)
-		return
-	}
-	defer s.store.Abort(ctx, txn)
-
-	logger := s.getDecisionLogger()
-
-	var buf *topdown.BufferTracer
-
-	if explainMode != types.ExplainOffV1 {
-		buf = topdown.NewBufferTracer()
-	}
-
-	pqID := "v1SchemaGet::"
-	if strictBuiltinErrors {
-		pqID += "strict-builtin-errors::"
-	}
-	pqID += urlPath
-	preparedQuery, ok := s.getCachedPreparedEvalQuery(pqID, m)
-	if !ok {
-		opts := []func(*rego.Rego){
-			rego.Compiler(s.getCompiler()),
-			rego.Store(s.store),
-			rego.Transaction(txn),
-			rego.ParsedSchema(schema),
-			rego.Query(stringPathToDataRef(urlPath).String()),
-			rego.Metrics(m),
-			rego.QueryTracer(buf),
-			rego.Instrument(includeInstrumentation),
-			rego.Runtime(s.runtime),
-			rego.UnsafeBuiltins(unsafeBuiltinsMap),
-			rego.StrictBuiltinErrors(strictBuiltinErrors),
-		}
-
-		for _, r := range s.manager.GetWasmResolvers() {
-			for _, entrypoint := range r.Entrypoints() {
-				opts = append(opts, rego.Resolver(entrypoint, r))
-			}
-		}
-
-		pq, err := rego.New(opts...).PrepareForEval(ctx)
-		if err != nil {
-			_ = logger.Log(ctx, txn, decisionID, r.RemoteAddr, urlPath, "", nil, nil, nil, err, m, schema)
-			writer.ErrorAuto(w, err)
-			return
-		}
-		preparedQuery = &pq
-		s.preparedEvalQueries.Insert(pqID, preparedQuery)
-	}
-
-	evalOpts := []rego.EvalOption{
-		rego.EvalTransaction(txn),
-		rego.EvalSchema(schema),
-		rego.EvalMetrics(m),
-		rego.EvalQueryTracer(buf),
-		rego.EvalInterQueryBuiltinCache(s.interQueryBuiltinCache),
-	}
-
-	rs, err := preparedQuery.Eval(
-		ctx,
-		evalOpts...,
-	)
-
-	m.Timer(metrics.ServerHandler).Stop()
-
-	// Handle results.
-	if err != nil {
-		_ = logger.Log(ctx, txn, decisionID, r.RemoteAddr, urlPath, "", nil, nil, nil, err, m, schema)
-		writer.ErrorAuto(w, err)
-		return
-	}
-
-	result := types.DataResponseV1{
-		DecisionID: decisionID,
-	}
-
-	if includeMetrics || includeInstrumentation {
-		result.Metrics = m.All()
-	}
-
-	if provenance {
-		result.Provenance = s.getProvenance()
-	}
-
-	if len(rs) == 0 {
-		if explainMode == types.ExplainFullV1 {
-			result.Explanation, err = types.NewTraceV1(*buf, pretty)
-			if err != nil {
-				writer.ErrorAuto(w, err)
-			}
-		}
-		err = logger.Log(ctx, txn, decisionID, r.RemoteAddr, urlPath, "", nil, nil, nil, nil, m, schema)
-		if err != nil {
-			writer.ErrorAuto(w, err)
-			return
-		}
-		writer.JSON(w, 200, result, pretty)
-		return
-	}
-
-	result.Result = &rs[0].Expressions[0].Value
-
-	if explainMode != types.ExplainOffV1 {
-		result.Explanation = s.getExplainResponse(explainMode, *buf, pretty)
-	}
-
-	err = logger.Log(ctx, txn, decisionID, r.RemoteAddr, urlPath, "", nil, nil, result.Result, nil, m, schema)
-	if err != nil {
-		writer.ErrorAuto(w, err)
-		return
-	}
-	writer.JSON(w, 200, result, pretty)
-}
-
-//TODO: Remove if not needed
-func (s *Server) v1SchemaPost(w http.ResponseWriter, r *http.Request) {
-	m := metrics.New()
-	m.Timer(metrics.ServerHandler).Start()
-
-	decisionID := s.generateDecisionID()
-
-	ctx := r.Context()
-	vars := mux.Vars(r)
-	urlPath := vars["path"]
-	pretty := getBoolParam(r.URL, types.ParamPrettyV1, true)
-	explainMode := getExplain(r.URL.Query()[types.ParamExplainV1], types.ExplainOffV1)
-	includeMetrics := getBoolParam(r.URL, types.ParamMetricsV1, true)
-	includeInstrumentation := getBoolParam(r.URL, types.ParamInstrumentV1, true)
-	partial := getBoolParam(r.URL, types.ParamPartialV1, true)
-	provenance := getBoolParam(r.URL, types.ParamProvenanceV1, true)
-	strictBuiltinErrors := getBoolParam(r.URL, types.ParamStrictBuiltinErrors, true)
-
-	m.Timer(metrics.RegoInputParse).Start()
-
-	schemaData, err := readSchemaPostV1(r)
-	schema, ok := schemaData.(map[string]interface{})
-	if err != nil {
-		writer.ErrorString(w, http.StatusBadRequest, types.CodeInvalidParameter, err)
-		return
-	}
-
-	m.Timer(metrics.RegoInputParse).Stop()
-
-	txn, err := s.store.NewTransaction(ctx)
-	if err != nil {
-		writer.ErrorAuto(w, err)
-		return
-	}
-	defer s.store.Abort(ctx, txn)
-
-	logger := s.getDecisionLogger()
-
-	var buf *topdown.BufferTracer
-
-	if explainMode != types.ExplainOffV1 {
-		buf = topdown.NewBufferTracer()
-	}
-
-	pqID := "v1SchemaPost::"
-	if partial {
-		pqID += "partial::"
-	}
-	if strictBuiltinErrors {
-		pqID += "strict-builtin-errors::"
-	}
-	pqID += urlPath
-	preparedQuery, ok := s.getCachedPreparedEvalQuery(pqID, m)
-	if !ok {
-		opts := []func(*rego.Rego){
-			rego.Compiler(s.getCompiler()),
-			rego.Store(s.store),
-			rego.StrictBuiltinErrors(strictBuiltinErrors),
-		}
-
-		// Set resolvers on the base Rego object to avoid having them get
-		// re-initialized, and to propagate them to the prepared query.
-		for _, r := range s.manager.GetWasmResolvers() {
-			for _, entrypoint := range r.Entrypoints() {
-				opts = append(opts, rego.Resolver(entrypoint, r))
-			}
-		}
-
-		rego, err := s.makeRego(ctx, partial, txn, nil, urlPath, m, includeInstrumentation, buf, opts, schema)
-
-		if err != nil {
-			_ = logger.Log(ctx, txn, decisionID, r.RemoteAddr, urlPath, "", nil, nil, nil, err, m, schema)
-			writer.ErrorAuto(w, err)
-			return
-		}
-
-		pq, err := rego.PrepareForEval(ctx)
-		if err != nil {
-			_ = logger.Log(ctx, txn, decisionID, r.RemoteAddr, urlPath, "", nil, nil, nil, err, m, schema)
-			writer.ErrorAuto(w, err)
-			return
-		}
-		preparedQuery = &pq
-		s.preparedEvalQueries.Insert(pqID, preparedQuery)
-	}
-
-	evalOpts := []rego.EvalOption{
-		rego.EvalTransaction(txn),
-		rego.EvalSchema(schema),
-		rego.EvalMetrics(m),
-		rego.EvalQueryTracer(buf),
-		rego.EvalInterQueryBuiltinCache(s.interQueryBuiltinCache),
-	}
-
-	rs, err := preparedQuery.Eval(
-		ctx,
-		evalOpts...,
-	)
-
-	m.Timer(metrics.ServerHandler).Stop()
-
-	// Handle results.
-	if err != nil {
-		_ = logger.Log(ctx, txn, decisionID, r.RemoteAddr, urlPath, "", nil, nil, nil, err, m, schema)
-		writer.ErrorAuto(w, err)
-		return
-	}
-
-	result := types.DataResponseV1{
-		DecisionID: decisionID,
-	}
-
-	if includeMetrics || includeInstrumentation {
-		result.Metrics = m.All()
-	}
-
-	if provenance {
-		result.Provenance = s.getProvenance()
-	}
-
-	if len(rs) == 0 {
-		if explainMode == types.ExplainFullV1 {
-			result.Explanation, err = types.NewTraceV1(*buf, pretty)
-			if err != nil {
-				writer.ErrorAuto(w, err)
-			}
-		}
-		err = logger.Log(ctx, txn, decisionID, r.RemoteAddr, urlPath, "", nil, nil, nil, nil, m, schema)
-		if err != nil {
-			writer.ErrorAuto(w, err)
-			return
-		}
-		writer.JSON(w, 200, result, pretty)
-		return
-	}
-
-	result.Result = &rs[0].Expressions[0].Value
-
-	if explainMode != types.ExplainOffV1 {
-		result.Explanation = s.getExplainResponse(explainMode, *buf, pretty)
-	}
-
-	err = logger.Log(ctx, txn, decisionID, r.RemoteAddr, urlPath, "", nil, nil, result.Result, nil, m, schema)
-	if err != nil {
-		writer.ErrorAuto(w, err)
-		return
-	}
-	writer.JSON(w, 200, result, pretty)
-}
-
 func (s *Server) v1PoliciesDelete(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	vars := mux.Vars(r)
@@ -2728,48 +2407,6 @@ func readInputPostV1(r *http.Request) (ast.Value, interface{}, error) {
 	}
 
 	return nil, nil, nil
-}
-
-func readSchemaGetV1(str string) (interface{}, error) {
-	var schema interface{}
-	if err := util.UnmarshalJSON([]byte(str), &schema); err != nil {
-		return nil, errors.Wrapf(err, "parameter contains malformed schema document")
-	}
-	return schema, nil
-}
-
-func readSchemaPostV1(r *http.Request) (interface{}, error) {
-
-	bs, err := ioutil.ReadAll(r.Body)
-
-	if err != nil {
-		return nil, err
-	}
-
-	if len(bs) > 0 {
-
-		ct := r.Header.Get("Content-Type")
-
-		var request types.SchemaRequestV1
-
-		// There is no standard for yaml mime-type so we just look for
-		// anything related
-		if strings.Contains(ct, "yaml") {
-			if err := util.Unmarshal(bs, &request); err != nil {
-				return nil, errors.Wrapf(err, "body contains malformed schema document")
-			}
-		} else if err := util.UnmarshalJSON(bs, &request); err != nil {
-			return nil, errors.Wrapf(err, "body contains malformed schemadocument")
-		}
-
-		if request.Schema == nil {
-			return nil, nil
-		}
-
-		return *request.Schema, nil
-	}
-
-	return nil, nil
 }
 
 type compileRequest struct {

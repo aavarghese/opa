@@ -22,9 +22,12 @@ require (
 	github.com/spf13/cobra v0.0.3
 	github.com/spf13/pflag v1.0.1
 	github.com/wasmerio/go-ext-wasm v0.3.1
+	github.com/xeipuuv/gojsonschema v1.2.0
 	github.com/yashtewari/glob-intersection v0.0.0-20180916065949-5c77d914dd0b
 	golang.org/x/lint v0.0.0-20200302205851-738671d3881b
 	golang.org/x/net v0.0.0-20200927032502-5d4f70055728
 	golang.org/x/text v0.3.3 // indirect
 	golang.org/x/tools v0.0.0-20201009032223-96877f285f7e
 )
+
+replace github.com/xeipuuv/gojsonschema => github.com/aavarghese/gojsonschema v1.2.4

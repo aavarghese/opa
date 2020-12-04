@@ -27,6 +27,8 @@ import (
 	"github.com/open-policy-agent/opa/topdown"
 	"github.com/open-policy-agent/opa/topdown/lineage"
 	"github.com/open-policy-agent/opa/util"
+
+	"github.com/xeipuuv/gojsonschema"
 )
 
 type evalCommandParams struct {
@@ -312,10 +314,6 @@ func eval(args []string, params evalCommandParams, w io.Writer) (bool, error) {
 		result.Coverage = &report
 	}
 
-	if ectx.r != nil { //AAV Todo
-
-	}
-
 	switch params.outputFormat.String() {
 	case evalBindingsOutput:
 		err = pr.Bindings(w, result)
@@ -418,16 +416,13 @@ func setupEval(args []string, params evalCommandParams) (*evalContext, error) {
 	if err != nil {
 		return nil, err
 	} else if schemaBytes != nil {
-		var schema interface{}
-		err := util.Unmarshal(schemaBytes, &schema)
+		sl := gojsonschema.NewSchemaLoader()
+		refLoader := gojsonschema.NewBytesLoader(schemaBytes)
+		schema, err := sl.Compile(refLoader)
 		if err != nil {
-			return nil, fmt.Errorf("unable to parse schema: %s", err.Error())
+			return nil, fmt.Errorf("unable to compile the schema for input: %s", err.Error())
 		}
-		/* 		schemaValue, err := ast.InterfaceToValue(schema)
-		   		if err != nil {
-		   			return nil, fmt.Errorf("unable to process schema: %s", err.Error())
-		   		} */
-		regoArgs = append(regoArgs, rego.ParsedSchema(schema))
+		regoArgs = append(regoArgs, rego.ParsedSchema(schema.RootSchema))
 	}
 
 	var tracer *topdown.BufferTracer
