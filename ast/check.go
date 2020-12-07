@@ -158,11 +158,24 @@ func (tc *typeChecker) getSchema(schemaPath string) (interface{}, error) {
 	for _, p := range path {
 		schemaMap, ok := schema.(map[string]interface{})
 		if !ok {
+			fmt.Printf("%v", schema)
 			return nil, fmt.Errorf("Problem processing schema")
 		}
 		schema = schemaMap[p]
 	}
 	return schema, nil
+}
+
+func getKey(name string) *Term {
+	if !strings.Contains(name, ".") {
+		return VarTerm(name)
+	}
+	names := strings.Split(name, ".")
+	terms := []*Term{}
+	for _, n := range names {
+		terms = append(terms, (VarTerm(n)))
+	}
+	return RefTerm(terms...)
 }
 
 func (tc *typeChecker) checkRule(env *TypeEnv, rule *Rule) {
@@ -177,8 +190,9 @@ func (tc *typeChecker) checkRule(env *TypeEnv, rule *Rule) {
 		}
 		staticProps, err := parseSchemaInterface(schema)
 		if err == nil {
-			env.tree.PutOne(VarTerm(rule.Annotation.Name).Value, types.NewObject(staticProps, nil))
-			defer env.tree.DeleteKey(VarTerm(rule.Annotation.Name).Value)
+			key := getKey(rule.Annotation.Name).Value
+			env.tree.PutOne(key, types.NewObject(staticProps, nil))
+			defer env.tree.DeleteKey(key)
 		} else {
 			errors = append(errors, NewError(TypeErr, rule.Location, err.Error()))
 		}
