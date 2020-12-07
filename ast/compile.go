@@ -859,8 +859,6 @@ func (c *Compiler) checkSafetyRuleHeads() {
 	}
 }
 
-<<<<<<< HEAD
-=======
 /* func parseSchemaObject(schema interface{}) ([]*types.StaticProperty, error) {
 	subSchema, ok := schema.(*gojsonschema.SubSchema)
 	if !ok {
@@ -883,9 +881,6 @@ func (c *Compiler) checkSafetyRuleHeads() {
 
 	return nil, fmt.Errorf("unexpected schema type %v", subSchema)
 } */
-
-const SchemaContent = "schema-content"
-const RegoType = "rego-type"
 
 //CompileSchemas takes a jsonschema and compiles it.
 func CompileSchemas(byteSchema []byte, goSchema interface{}) (*gojsonschema.Schema, error) {
@@ -920,7 +915,6 @@ func CompileAndParseSchema(schema interface{}) (*types.Object, error) {
 }
 
 // ParseSchemaRecursive obtains an array of Rego static property from a schema interface
->>>>>>> f33aa89152a708adfcbfe9a306f860dd57f3b799
 func parseSchemaRecursive(schema interface{}) ([]*types.StaticProperty, error) {
 
 	subSchema, ok := schema.(*gojsonschema.SubSchema)
