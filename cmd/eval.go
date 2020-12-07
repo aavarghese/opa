@@ -27,8 +27,6 @@ import (
 	"github.com/open-policy-agent/opa/topdown"
 	"github.com/open-policy-agent/opa/topdown/lineage"
 	"github.com/open-policy-agent/opa/util"
-
-	"github.com/xeipuuv/gojsonschema"
 )
 
 type evalCommandParams struct {
@@ -416,11 +414,9 @@ func setupEval(args []string, params evalCommandParams) (*evalContext, error) {
 	if err != nil {
 		return nil, err
 	} else if schemaBytes != nil {
-		sl := gojsonschema.NewSchemaLoader()
-		refLoader := gojsonschema.NewBytesLoader(schemaBytes)
-		schema, err := sl.Compile(refLoader)
+		schema, err := util.CompileSchemas(schemaBytes, nil)
 		if err != nil {
-			return nil, fmt.Errorf("unable to compile the schema for input: %s", err.Error())
+			return nil, fmt.Errorf("compile failed: %s", err.Error())
 		}
 		regoArgs = append(regoArgs, rego.ParsedSchema(schema.RootSchema))
 	}

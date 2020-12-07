@@ -14,7 +14,6 @@ import (
 	"path"
 
 	"github.com/spf13/cobra"
-	"github.com/xeipuuv/gojsonschema"
 
 	fileurl "github.com/open-policy-agent/opa/internal/file/url"
 	"github.com/open-policy-agent/opa/runtime"
@@ -267,11 +266,9 @@ func initRuntime(ctx context.Context, params runCmdParams, args []string) (*runt
 	if err != nil {
 		return nil, err
 	} else if schemaBytes != nil {
-		sl := gojsonschema.NewSchemaLoader()
-		refLoader := gojsonschema.NewBytesLoader(schemaBytes)
-		schema, err := sl.Compile(refLoader)
+		schema, err := util.CompileSchemas(schemaBytes, nil)
 		if err != nil {
-			return nil, fmt.Errorf("unable to compile the schema for input: %s", err.Error())
+			return nil, fmt.Errorf("compile failed: %s", err.Error())
 		}
 		params.rt.Schema = schema.RootSchema
 	}
