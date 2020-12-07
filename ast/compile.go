@@ -885,8 +885,6 @@ func compileSchema(goSchema interface{}) (*gojsonschema.Schema, error) {
 	}
 	return schemasCompiled, nil
 }
-const SchemaContent = "schema-content"
-const RegoType = "rego-type"
 
 func parseSchema(schema interface{}) (types.Type, error) {
 	subSchema, ok := schema.(*gojsonschema.SubSchema)
