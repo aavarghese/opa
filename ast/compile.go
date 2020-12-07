@@ -910,7 +910,7 @@ func CompileAndParseSchema(schema interface{}) (*types.Object, error) {
 	if err != nil {
 		return &types.Object{}, err
 	}
-	staticProps, err := parseSchemaRecursive(compiledSchema)
+	staticProps, err := parseSchemaRecursive(compiledSchema.RootSchema)
 	if err != nil {
 		return &types.Object{}, err
 	}

@@ -455,27 +455,6 @@ func writeData(ctx context.Context, store storage.Store, txn storage.Transaction
 	return nil
 }
 
-func computeTypes(schemas *interface{}) error {
-	schemaMap, ok := (*schemas).(map[string]interface{})
-	if !ok {
-		return nil
-	}
-	content, found := schemaMap[ast.SchemaContent]
-	if found { // The current interface is a schema object
-		schemaType, err := ast.CompileAndParseSchema(content)
-		if err != nil {
-			return err
-		}
-		schemaMap[ast.RegoType] = *schemaType
-		return nil
-	}
-
-	for _, v := range schemaMap {
-		computeTypes(&v)
-	}
-	return nil
-}
-
 func writeModules(ctx context.Context, store storage.Store, txn storage.Transaction, compiler *ast.Compiler, m metrics.Metrics, bundles map[string]*Bundle, extraModules map[string]*ast.Module, legacy bool, schema interface{}) error {
 
 	m.Timer(metrics.RegoModuleCompile).Start()
@@ -508,10 +487,7 @@ func writeModules(ctx context.Context, store storage.Store, txn storage.Transact
 
 	schemas, err := store.Read(ctx, txn, storage.MustParsePath("/schemas")) //MV
 	if err == nil {
-		err = computeTypes(&schemas)
-		if err == nil {
-			compiler = compiler.WithSchemaStore(schemas)
-		}
+		compiler = compiler.WithSchemaStore(schemas)
 	}
 
 	if schema != nil {
