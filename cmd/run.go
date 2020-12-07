@@ -15,6 +15,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/open-policy-agent/opa/ast"
 	fileurl "github.com/open-policy-agent/opa/internal/file/url"
 	"github.com/open-policy-agent/opa/runtime"
 	"github.com/open-policy-agent/opa/server"
@@ -266,7 +267,7 @@ func initRuntime(ctx context.Context, params runCmdParams, args []string) (*runt
 	if err != nil {
 		return nil, err
 	} else if schemaBytes != nil {
-		schema, err := util.CompileSchemas(schemaBytes, nil)
+		schema, err := ast.CompileSchemas(schemaBytes, nil)
 		if err != nil {
 			return nil, fmt.Errorf("compile failed: %s", err.Error())
 		}

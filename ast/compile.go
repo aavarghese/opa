@@ -859,6 +859,68 @@ func (c *Compiler) checkSafetyRuleHeads() {
 	}
 }
 
+<<<<<<< HEAD
+=======
+/* func parseSchemaObject(schema interface{}) ([]*types.StaticProperty, error) {
+	subSchema, ok := schema.(*gojsonschema.SubSchema)
+	if !ok {
+		return nil, fmt.Errorf("unexpected schema type %v", subSchema)
+	}
+
+	// Handle referenced schemas, returns directly when a $ref is found
+	if subSchema.RefSchema != nil {
+		return parseSchemaRecursive(subSchema.RefSchema)
+	}
+
+	if subSchema.Types.IsTyped() && subSchema.Types.Contains(`object`) {
+		props, err := parseSchemaRecursive(subSchema)
+		if err != nil {
+			return nil, err
+		}
+		fmt.Println("Final one", subSchema.Property)
+		return props, nil
+	}
+
+	return nil, fmt.Errorf("unexpected schema type %v", subSchema)
+} */
+
+const SchemaContent = "schema-content"
+const RegoType = "rego-type"
+
+//CompileSchemas takes a jsonschema and compiles it.
+func CompileSchemas(byteSchema []byte, goSchema interface{}) (*gojsonschema.Schema, error) {
+	var refLoader gojsonschema.JSONLoader
+	sl := gojsonschema.NewSchemaLoader()
+
+	if byteSchema != nil {
+		refLoader = gojsonschema.NewBytesLoader(byteSchema)
+	} else if goSchema != nil {
+		refLoader = gojsonschema.NewGoLoader(goSchema)
+	} else {
+		return nil, fmt.Errorf("no schema as input to compile")
+	}
+	schemasCompiled, err := sl.Compile(refLoader)
+	if err != nil {
+		return nil, fmt.Errorf("unable to compile the schema due to: %s", err.Error())
+	}
+	return schemasCompiled, nil
+}
+
+// CompileAndParseSchema first compiles a schema and parses it into a Rego type
+func CompileAndParseSchema(schema interface{}) (*types.Object, error) {
+	compiledSchema, err := CompileSchemas(nil, schema)
+	if err != nil {
+		return &types.Object{}, err
+	}
+	staticProps, err := parseSchemaRecursive(compiledSchema)
+	if err != nil {
+		return &types.Object{}, err
+	}
+	return types.NewObject(staticProps, nil), nil
+}
+
+// ParseSchemaRecursive obtains an array of Rego static property from a schema interface
+>>>>>>> f33aa89152a708adfcbfe9a306f860dd57f3b799
 func parseSchemaRecursive(schema interface{}) ([]*types.StaticProperty, error) {
 
 	subSchema, ok := schema.(*gojsonschema.SubSchema)
