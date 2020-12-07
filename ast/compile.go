@@ -859,29 +859,6 @@ func (c *Compiler) checkSafetyRuleHeads() {
 	}
 }
 
-/* func parseSchemaObject(schema interface{}) ([]*types.StaticProperty, error) {
-	subSchema, ok := schema.(*gojsonschema.SubSchema)
-	if !ok {
-		return nil, fmt.Errorf("unexpected schema type %v", subSchema)
-	}
-
-	// Handle referenced schemas, returns directly when a $ref is found
-	if subSchema.RefSchema != nil {
-		return parseSchemaRecursive(subSchema.RefSchema)
-	}
-
-	if subSchema.Types.IsTyped() && subSchema.Types.Contains(`object`) {
-		props, err := parseSchemaRecursive(subSchema)
-		if err != nil {
-			return nil, err
-		}
-		fmt.Println("Final one", subSchema.Property)
-		return props, nil
-	}
-
-	return nil, fmt.Errorf("unexpected schema type %v", subSchema)
-} */
-
 func parseSchemaRecursive(schema interface{}) ([]*types.StaticProperty, error) {
 
 	subSchema, ok := schema.(*gojsonschema.SubSchema)
@@ -937,7 +914,6 @@ func parseSchemaRecursive(schema interface{}) ([]*types.StaticProperty, error) {
 				}
 				value = types.NewObject(props, nil)
 			}
-			fmt.Println("Child ones:", pSchema.Property)
 			staticProps = append(staticProps, types.NewStaticProperty(pSchema.Property, value))
 		}
 	}

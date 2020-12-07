@@ -179,7 +179,7 @@ func (tc *typeChecker) checkRule(env *TypeEnv, rule *Rule) {
 		if err != nil {
 			errors = append(errors, NewError(TypeErr, rule.Location, err.Error()))
 		}
-		staticProps, err := parseSchemaRecursive(compiledSchema)
+		staticProps, err := parseSchemaRecursive(compiledSchema.RootSchema)
 		if err == nil {
 			env.tree.PutOne(VarTerm(rule.Annotation.Name).Value, types.NewObject(staticProps, nil))
 			defer env.tree.DeleteKey(VarTerm(rule.Annotation.Name).Value)
