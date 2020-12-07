@@ -859,6 +859,8 @@ func (c *Compiler) checkSafetyRuleHeads() {
 	}
 }
 
+<<<<<<< HEAD
+=======
 /* func parseSchemaObject(schema interface{}) ([]*types.StaticProperty, error) {
 	subSchema, ok := schema.(*gojsonschema.SubSchema)
 	if !ok {
@@ -918,6 +920,7 @@ func CompileAndParseSchema(schema interface{}) (*types.Object, error) {
 }
 
 // ParseSchemaRecursive obtains an array of Rego static property from a schema interface
+>>>>>>> f33aa89152a708adfcbfe9a306f860dd57f3b799
 func parseSchemaRecursive(schema interface{}) ([]*types.StaticProperty, error) {
 
 	subSchema, ok := schema.(*gojsonschema.SubSchema)
@@ -973,7 +976,6 @@ func parseSchemaRecursive(schema interface{}) ([]*types.StaticProperty, error) {
 				}
 				value = types.NewObject(props, nil)
 			}
-			fmt.Println("Child ones:", pSchema.Property)
 			staticProps = append(staticProps, types.NewStaticProperty(pSchema.Property, value))
 		}
 	}
