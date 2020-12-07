@@ -15,7 +15,6 @@ import (
 	"github.com/open-policy-agent/opa/metrics"
 	"github.com/open-policy-agent/opa/storage"
 	"github.com/open-policy-agent/opa/util"
-	"github.com/xeipuuv/gojsonschema"
 )
 
 // BundlesBasePath is the storage path used for storing bundle metadata
@@ -488,14 +487,9 @@ func writeModules(ctx context.Context, store storage.Store, txn storage.Transact
 
 	schemas, err := store.Read(ctx, txn, storage.MustParsePath("/schemas")) //MV
 	if err == nil {
-		sl := gojsonschema.NewSchemaLoader()
-		refLoader := gojsonschema.NewGoLoader(schemas)
-		schemasCompiled, err := sl.Compile(refLoader)
-		if err != nil {
-			return fmt.Errorf("unable to compile the schema for input: %s", err.Error())
-		}
-		compiler = compiler.WithSchemaStore(schemasCompiled.RootSchema)
+		compiler = compiler.WithSchemaStore(schemas)
 	}
+
 	if schema != nil {
 		if compiler.CompileWithSchema(modules, schema); compiler.Failed() { //AAV
 			return compiler.Errors

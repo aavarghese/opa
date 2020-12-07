@@ -188,7 +188,11 @@ func (tc *typeChecker) checkRule(env *TypeEnv, rule *Rule) {
 		if err != nil {
 			errors = append(errors, NewError(TypeErr, rule.Location, err.Error()))
 		}
-		staticProps, err := parseSchemaRecursive(schema)
+		compiledSchema, err := util.CompileSchemas(nil, schema)
+		if err != nil {
+			errors = append(errors, NewError(TypeErr, rule.Location, err.Error()))
+		}
+		staticProps, err := parseSchemaRecursive(compiledSchema)
 		if err == nil {
 			key := getKey(rule.Annotation.Name).Value
 			env.tree.PutOne(key, types.NewObject(staticProps, nil))
