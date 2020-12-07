@@ -885,6 +885,8 @@ func compileSchema(goSchema interface{}) (*gojsonschema.Schema, error) {
 	}
 	return schemasCompiled, nil
 }
+const SchemaContent = "schema-content"
+const RegoType = "rego-type"
 
 func parseSchema(schema interface{}) (types.Type, error) {
 	subSchema, ok := schema.(*gojsonschema.SubSchema)
@@ -976,16 +978,7 @@ func (c *Compiler) checkTypes() {
 	sorted, _ := c.Graph.Sort()
 	checker := newTypeChecker().WithVarRewriter(rewriteVarsInRef(c.RewrittenVars)).WithSchemas(c.schemaStore)
 
-<<<<<<< HEAD
 	c.setInputType()
-=======
-	if c.schema != nil {
-		err := c.setTypesWithSchema(c.schema) //NEW TYPE CHECKING WITH SCHEMA
-		if err != nil {
-			c.err(NewError(TypeErr, nil, err.Error()))
-		}
-	}
->>>>>>> 5e4c657c... Processing schema annotations
 
 	env, errs := checker.CheckTypes(c.TypeEnv, sorted)
 	for _, err := range errs {
@@ -1671,21 +1664,9 @@ func (qc *queryCompiler) checkSafety(_ *QueryContext, body Body) (Body, error) {
 
 func (qc *queryCompiler) checkTypes(qctx *QueryContext, body Body) (Body, error) {
 	var errs Errors
-<<<<<<< HEAD
 	checker := newTypeChecker().WithVarRewriter(rewriteVarsInRef(qc.rewritten, qc.compiler.RewrittenVars))
 
 	qc.compiler.setInputType()
-=======
-	sorted, _ := qc.compiler.Graph.Sort()
-	checker := newTypeChecker().WithVarRewriter(rewriteVarsInRef(qc.rewritten, qc.compiler.RewrittenVars)).WithSchemas(qc.compiler.schemaStore)
-
-	if qc.compiler.schema != nil {
-		err := qc.compiler.setTypesWithSchema(qc.compiler.schema) //NEW TYPE CHECKING WITH SCHEMA
-		if err != nil {
-			qc.compiler.err(NewError(TypeErr, nil, err.Error()))
-		}
-	}
->>>>>>> 5e4c657c... Processing schema annotations
 
 	qc.typeEnv, errs = checker.CheckBody(qc.compiler.TypeEnv, body)
 	if len(errs) > 0 {
