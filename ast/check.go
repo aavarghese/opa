@@ -152,18 +152,25 @@ func (tc *typeChecker) checkLanguageBuiltins(env *TypeEnv, builtins map[string]*
 	return env
 }
 
-func (tc *typeChecker) getSchema(schemaPath string) (interface{}, error) {
+func (tc *typeChecker) getSchemaType(schemaPath string) (types.Object, error) {
 	path := strings.Split(schemaPath, ".")
 	schema := tc.schemaStore
 	for _, p := range path {
 		schemaMap, ok := schema.(map[string]interface{})
 		if !ok {
-			fmt.Printf("%v", schema)
-			return nil, fmt.Errorf("Problem processing schema")
+			return types.Object{}, fmt.Errorf("Problem processing schema")
 		}
 		schema = schemaMap[p]
 	}
-	return schema, nil
+	schemaMap, ok := schema.(map[string]interface{})
+	if !ok {
+		return types.Object{}, fmt.Errorf("Problem processing schema")
+	}
+	regoObject, ok := schemaMap[RegoType].(types.Object)
+	if !ok {
+		return types.Object{}, fmt.Errorf("Problem processing schema")
+	}
+	return regoObject, nil
 }
 
 func getKey(name string) *Term {
@@ -184,18 +191,13 @@ func (tc *typeChecker) checkRule(env *TypeEnv, rule *Rule) {
 	// TODO: in the future we should also support #@rulesSchema=data.XYZ:data.schemas.input-schema
 	if rule.Annotation != nil {
 		errors := []*Error{}
-		schema, err := tc.getSchema(rule.Annotation.Schema)
+		schemaType, err := tc.getSchemaType(rule.Annotation.Schema)
 		if err != nil {
 			errors = append(errors, NewError(TypeErr, rule.Location, err.Error()))
 		}
-		staticProps, err := parseSchemaInterface(schema)
-		if err == nil {
-			key := getKey(rule.Annotation.Name).Value
-			env.tree.PutOne(key, types.NewObject(staticProps, nil))
-			defer env.tree.DeleteKey(key)
-		} else {
-			errors = append(errors, NewError(TypeErr, rule.Location, err.Error()))
-		}
+		key := getKey(rule.Annotation.Name).Value
+		env.tree.PutOne(key, &schemaType)
+		defer env.tree.DeleteKey(key)
 	}
 
 	cpy, err := tc.CheckBody(env, rule.Body)
