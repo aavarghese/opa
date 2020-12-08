@@ -155,14 +155,17 @@ func (tc *typeChecker) checkLanguageBuiltins(env *TypeEnv, builtins map[string]*
 func (tc *typeChecker) getSchema(schemaPath string) (interface{}, error) {
 	path := strings.Split(schemaPath, ".")
 	schema := tc.schemaStore
-	for _, p := range path {
-		schemaMap, ok := schema.(map[string]interface{})
-		if !ok {
-			return nil, fmt.Errorf("Problem processing schema")
+	if schema != nil {
+		for _, p := range path {
+			schemaMap, ok := schema.(map[string]interface{})
+			if !ok {
+				return nil, fmt.Errorf("Problem processing schema")
+			}
+			schema = schemaMap[p]
 		}
-		schema = schemaMap[p]
+		return schema, nil
 	}
-	return schema, nil
+	return nil, fmt.Errorf("No schema in store at path")
 }
 
 func getKey(name string) *Term {
@@ -185,18 +188,20 @@ func (tc *typeChecker) checkRule(env *TypeEnv, rule *Rule) {
 		schema, err := tc.getSchema(rule.Annotation.Schema)
 		if err != nil {
 			errors = append(errors, NewError(TypeErr, rule.Location, err.Error()))
-		}
-		compiledSchema, err := CompileSchemas(nil, schema)
-		if err != nil {
-			errors = append(errors, NewError(TypeErr, rule.Location, err.Error()))
-		}
-		staticProps, err := parseSchemaRecursive(compiledSchema.RootSchema)
-		if err == nil {
-			key := getKey(rule.Annotation.Name).Value
-			env.tree.PutOne(key, types.NewObject(staticProps, nil))
-			defer env.tree.DeleteKey(key)
 		} else {
-			errors = append(errors, NewError(TypeErr, rule.Location, err.Error()))
+			compiledSchema, err := CompileSchemas(nil, schema)
+			if err != nil {
+				errors = append(errors, NewError(TypeErr, rule.Location, err.Error()))
+			} else {
+				staticProps, err := parseSchemaRecursive(compiledSchema.RootSchema)
+				if err == nil {
+					key := getKey(rule.Annotation.Name).Value
+					env.tree.PutOne(key, types.NewObject(staticProps, nil))
+					defer env.tree.DeleteKey(key)
+				} else {
+					errors = append(errors, NewError(TypeErr, rule.Location, err.Error()))
+				}
+			}
 		}
 	}
 

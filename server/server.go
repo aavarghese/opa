@@ -1419,10 +1419,18 @@ func (s *Server) v1DataPost(w http.ResponseWriter, r *http.Request) {
 		pqID += "strict-builtin-errors::"
 	}
 	pqID += urlPath
+
 	preparedQuery, ok := s.getCachedPreparedEvalQuery(pqID, m)
 	if !ok {
+		schemas, err := s.store.Read(ctx, txn, storage.MustParsePath("/schemas")) //MV
+		var compiler *ast.Compiler
+		if err == nil {
+			compiler = s.getCompiler().WithSchemaStore(schemas)
+		} else {
+			compiler = s.getCompiler()
+		}
 		opts := []func(*rego.Rego){
-			rego.Compiler(s.getCompiler()),
+			rego.Compiler(compiler),
 			rego.Store(s.store),
 			rego.StrictBuiltinErrors(strictBuiltinErrors),
 		}
