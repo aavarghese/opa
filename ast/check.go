@@ -11,6 +11,7 @@ import (
 
 	"github.com/open-policy-agent/opa/types"
 	"github.com/open-policy-agent/opa/util"
+	"github.com/xeipuuv/gojsonschema"
 )
 
 type rewriteVars func(x Ref) Ref
@@ -165,16 +166,23 @@ func (tc *typeChecker) getSchema(schemaPath string) (interface{}, error) {
 	return schema, nil
 }
 
-func getKey(name string) *Term {
-	if !strings.Contains(name, ".") {
-		return VarTerm(name)
+func getObjectType(names []string, compiledSchema *gojsonschema.Schema) (types.Type, error) {
+	if len(names) <= 1 {
+		staticProps, err := parseSchemaRecursive(compiledSchema.RootSchema)
+		if err != nil {
+			return nil, err
+		}
+		return types.NewObject(staticProps, nil), nil
 	}
-	names := strings.Split(name, ".")
-	terms := []*Term{}
-	for _, n := range names {
-		terms = append(terms, (VarTerm(n)))
+	objectType, err := getObjectType(names[1:], compiledSchema)
+	if err != nil {
+		return nil, err
 	}
-	return RefTerm(terms...)
+	props := []*types.StaticProperty{}
+	props = append(props, types.NewStaticProperty(names[1], objectType))
+
+	return types.NewObject(props, nil), nil
+
 }
 
 func (tc *typeChecker) checkRule(env *TypeEnv, rule *Rule) {
@@ -182,21 +190,32 @@ func (tc *typeChecker) checkRule(env *TypeEnv, rule *Rule) {
 	// Annotations are of the form: #@rulesSchema=input:data.schemas.input-schema and must immediately precede the rule definition
 	if rule.Annotation != nil {
 		errors := []*Error{}
-		schema, err := tc.getSchema(rule.Annotation.Schema)
-		if err != nil {
-			errors = append(errors, NewError(TypeErr, rule.Location, err.Error()))
-		}
-		compiledSchema, err := CompileSchemas(nil, schema)
-		if err != nil {
-			errors = append(errors, NewError(TypeErr, rule.Location, err.Error()))
-		}
-		staticProps, err := parseSchemaRecursive(compiledSchema.RootSchema)
-		if err == nil {
-			key := getKey(rule.Annotation.Name).Value
-			env.tree.PutOne(key, types.NewObject(staticProps, nil))
-			defer env.tree.DeleteKey(key)
-		} else {
-			errors = append(errors, NewError(TypeErr, rule.Location, err.Error()))
+		for _, annot := range rule.Annotation {
+			schema, err := tc.getSchema(annot.Schema)
+			if err != nil {
+				errors = append(errors, NewError(TypeErr, rule.Location, err.Error()))
+			} else {
+				compiledSchema, err := CompileSchemas(nil, schema)
+				if err != nil {
+					errors = append(errors, NewError(TypeErr, rule.Location, err.Error()))
+				} else {
+					names := strings.Split(annot.Name, ".")
+					objectType, err := getObjectType(names, compiledSchema)
+					if err != nil {
+						errors = append(errors, NewError(TypeErr, rule.Location, err.Error()))
+					}
+					terms := []*Term{VarTerm(names[0])}
+					t := env.tree.Get(Ref(terms))
+					if t == nil {
+						env.tree.PutOne(Var(names[0]), objectType)
+						defer env.tree.DeleteKey(Var(names[0]))
+					} else {
+						env.tree.PutOne(Var(names[0]), types.Or(t, objectType))
+						defer env.tree.PutOne(Var(names[0]), t)
+					}
+
+				}
+			}
 		}
 	}
 
