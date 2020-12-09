@@ -48,66 +48,7 @@
                      "$id": "#/properties/request/properties/object",
                      "type": "object",
                      "description": "An explanation about the purpose of this instance.",
-                     "required": [
-                         "metadata",
-                         "spec"
-                     ],
                      "properties": {
-                         "metadata": {
-                             "$id": "#/properties/request/properties/object/properties/metadata",
-                             "type": "object",
-                             "description": "An explanation about the purpose of this instance.",
-                             "required": [
-                                 "name"
-                             ],
-                             "properties": {
-                                 "name": {
-                                     "$id": "#/properties/request/properties/object/properties/metadata/properties/name",
-                                     "type": "string",
-                                     "description": "An explanation about the purpose of this instance."
-                                 }
-                             },
-                             "additionalProperties": false
-                         },
-                         "spec": {
-                             "$id": "#/properties/request/properties/object/properties/spec",
-                             "type": "object",
-                             "description": "An explanation about the purpose of this instance.",
-                             "required": [
-                                 "containers"
-                             ],
-                             "properties": {
-                                 "containers": {
-                                     "$id": "#/properties/request/properties/object/properties/spec/properties/containers",
-                                     "type": "array",
-                                     "description": "An explanation about the purpose of this instance.",
-                                     "additionalItems": false,
-                                     "items": {
-                                         "$id": "#/properties/request/properties/object/properties/spec/properties/containers/items",
-                                         "type": "object",
-                                         "description": "An explanation about the purpose of this instance.",
-                                         "required": [
-                                             "image",
-                                             "name"
-                                         ],
-                                         "properties": {
-                                             "image": {
-                                                 "$id": "#/properties/request/properties/object/properties/spec/properties/containers/items/properties/image",
-                                                 "type": "string",
-                                                 "description": "An explanation about the purpose of this instance."
-                                             },
-                                             "name": {
-                                                 "$id": "#/properties/request/properties/object/properties/spec/properties/containers/items/properties/name",
-                                                 "type": "string",
-                                                 "description": "An explanation about the purpose of this instance."
-                                             }
-                                         },
-                                         "additionalProperties": false
-                                     }
-                                 }
-                             },
-                             "additionalProperties": false
-                         }
                      },
                      "additionalProperties": false
                  }

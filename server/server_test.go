@@ -2848,7 +2848,7 @@ func TestServerUsesAuthorizerParsedBody(t *testing.T) {
 	})
 
 	// Check that v1 reader function behaves correctly.
-	inp, err := readInputPostV1(req.WithContext(ctx))
+	inp, _, err := readInputPostV1(req.WithContext(ctx))
 	if err != nil {
 		t.Fatal(err)
 	}

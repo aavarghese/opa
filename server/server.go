@@ -2390,10 +2390,12 @@ func readInputPostV1(r *http.Request) (ast.Value, interface{}, error) {
 	if ok {
 		if obj, ok := parsed.(map[string]interface{}); ok {
 			if input, ok := obj["input"]; ok {
-				return ast.InterfaceToValue(input)
+				input, err := ast.InterfaceToValue(input)
+				return input, nil, err
 			}
+			// Get schema too
 		}
-		return nil, nil
+		return nil, nil, nil
 	}
 
 	bs, err := ioutil.ReadAll(r.Body)
