@@ -82,17 +82,22 @@ const schemaPrefix = "data.schemas."
 
 // getAnnotation
 // MV - Returns a comment appearing at that line if any
-func (p *Parser) getAnnotation(line int) *SchemaAnnotation {
+func (p *Parser) getAnnotation(line int) []*SchemaAnnotation {
 	for _, comment := range p.s.comments {
 		if comment.Location.Row == line {
 			text := string(comment.Text)
 			if strings.HasPrefix(text, schemaAnnot) {
 				annot := strings.TrimPrefix(text, schemaAnnot)
-				segs := strings.Split(annot, ":")
-				schema := strings.TrimPrefix(segs[1], schemaPrefix)
-				if len(segs) == 2 {
-					return &SchemaAnnotation{Name: segs[0], Schema: schema}
+				annotSegs := strings.Split(annot, ",")
+				ret := []*SchemaAnnotation{}
+				for _, seg := range annotSegs {
+					segs := strings.Split(seg, ":")
+					if len(segs) == 2 {
+						schema := strings.TrimPrefix(segs[1], schemaPrefix)
+						ret = append(ret, &SchemaAnnotation{Name: segs[0], Schema: schema})
+					}
 				}
+				return ret
 			}
 		}
 	}
