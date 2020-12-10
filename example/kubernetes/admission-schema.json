@@ -46,7 +46,11 @@
                  },
                  "object": {
                      "$id": "#/properties/request/properties/object",
-                     "type": "object"
+                     "type": "object",
+                     "description": "An explanation about the purpose of this instance.",
+                     "properties": {
+                     },
+                     "additionalProperties": false
                  }
              },
              "additionalProperties": false
