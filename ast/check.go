@@ -185,6 +185,37 @@ func getObjectType(names []string, compiledSchema *gojsonschema.Schema) (types.T
 
 }
 
+func getPrefixToOverride(name string, env *TypeEnv) (string, types.Type) {
+	t := env.tree.Get(MustParseRef(name))
+	if t != nil {
+		return name, t
+	}
+	names := strings.Split(name, ".")
+	if len(names) > 1 {
+		prefix, t := getPrefixToOverride(strings.TrimSuffix(name, "."+names[len(names)-1]), env)
+		if t != nil {
+			return prefix, t
+		}
+	}
+	return "", nil
+}
+
+func override(names []string, t types.Type, o types.Type) types.Type {
+	obj := t.(*types.Object)
+	staticProps := obj.StaticProperties()
+	newStaticProps := []*types.StaticProperty{}
+
+	for _, prop := range staticProps {
+		if len(names) == 1 && names[0] == prop.Key.(string) {
+			prop.Value = o
+		} else if len(names) > 0 && names[0] == prop.Key.(string) {
+			prop.Value = override(names[1:], prop.Value, o)
+		}
+		newStaticProps = append(newStaticProps, types.NewStaticProperty(prop.Key, prop.Value))
+	}
+	return types.NewObject(newStaticProps, nil)
+}
+
 func (tc *typeChecker) checkRule(env *TypeEnv, rule *Rule) {
 	// If rule has a schema annotation, then process the schema and add it to TypeEnv
 	// Annotations are of the form: #@rulesSchema=input:data.schemas.input-schema and must immediately precede the rule definition
@@ -199,19 +230,24 @@ func (tc *typeChecker) checkRule(env *TypeEnv, rule *Rule) {
 				if err != nil {
 					errors = append(errors, NewError(TypeErr, rule.Location, err.Error()))
 				} else {
-					names := strings.Split(annot.Name, ".")
-					objectType, err := getObjectType(names, compiledSchema)
+					staticProps, err := parseSchemaRecursive(compiledSchema.RootSchema)
 					if err != nil {
 						errors = append(errors, NewError(TypeErr, rule.Location, err.Error()))
 					}
-					terms := []*Term{VarTerm(names[0])}
-					t := env.tree.Get(Ref(terms))
-					if t == nil {
-						env.tree.PutOne(Var(names[0]), objectType)
-						defer env.tree.DeleteKey(Var(names[0]))
+
+					ref := MustParseRef(annot.Name)
+					prefixName, t := getPrefixToOverride(annot.Name, env)
+
+					if t == nil || prefixName == annot.Name {
+						env.tree.Put(ref, types.NewObject(staticProps, nil))
+						defer env.tree.DeleteKey(ref)
 					} else {
-						env.tree.PutOne(Var(names[0]), types.Or(t, objectType))
-						defer env.tree.PutOne(Var(names[0]), t)
+						refPrefix := MustParseRef(prefixName)
+						name := strings.TrimPrefix(annot.Name, prefixName+".")
+						names := strings.Split(name, ".")
+						newType := override(names, t, types.NewObject(staticProps, nil))
+						env.tree.Put(refPrefix, newType)
+						defer env.tree.Put(refPrefix, t)
 					}
 
 				}
