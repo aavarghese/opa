@@ -945,7 +945,11 @@ func parseSchemaRecursive(schema interface{}) ([]*types.StaticProperty, error) {
 				if err != nil {
 					return nil, fmt.Errorf("unexpected schema type %v", pSchema)
 				}
-				value = types.NewObject(props, nil)
+				if len(props) == 0 {
+					value = types.A
+				} else {
+					value = types.NewObject(props, nil)
+				}
 			}
 			staticProps = append(staticProps, types.NewStaticProperty(pSchema.Property, value))
 		}
