@@ -342,7 +342,7 @@ func (c *Compiler) QueryCompiler() QueryCompiler {
 	return newQueryCompiler(c)
 }
 
-// CompileWithSchema runs the compilation process on the input modules.
+// QueryCompilerWithSchema runs the compilation process on the input modules.
 func (c *Compiler) QueryCompilerWithSchema(schema interface{}) QueryCompiler {
 	c.schema = schema
 	return c.QueryCompiler()
