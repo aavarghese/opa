@@ -247,6 +247,31 @@ func testEvalWithSchemaFile(t *testing.T, input string, query string, schema str
 	return err
 }
 
+func testEvalWithInvalidSchemaFile(t *testing.T, input string, query string, schema string) error {
+	files := map[string]string{
+		"input.json":  input,
+		"schema.json": schema,
+	}
+
+	var err error
+	test.WithTempFS(files, func(path string) {
+
+		params := newEvalCommandParams()
+		params.inputPath = filepath.Join(path, "input.json")
+		params.schemaPath = filepath.Join(path, "schemaBad.json")
+
+		var buf bytes.Buffer
+		var defined bool
+		defined, err = eval([]string{query}, params, &buf)
+		if !defined || err != nil {
+			err = fmt.Errorf("Unexpected error or undefined from evaluation: %v", err)
+			return
+		}
+	})
+
+	return err
+}
+
 func TestEvalWithJSONSchemaFile(t *testing.T) {
 
 	input := `{
@@ -345,23 +370,17 @@ func TestEvalWithInvalidSchemaFile(t *testing.T) {
 				"c": null
 			}
 		]
-}`
+	}`
 
-	schema := `{
-		"type": "object",
-		"description": "The root schema comprises the entire JSON document.",
-		"properties": {
-			"foo": {
-				"$id": "#/properties/foo",
-				"type": ,
-				"title": "The foo schema",
-				"description": "An explanation about the purpose of this instance."
-			}
-		},
-	}` //schema has invalid syntax in "type" field
+	schema := `{badjson`
 
 	query := "input.b[0].a == 1"
 	err := testEvalWithSchemaFile(t, input, query, schema)
+	if err == nil {
+		t.Fatalf("expected error but err == nil")
+	}
+
+	err = testEvalWithInvalidSchemaFile(t, input, query, schema)
 	if err == nil {
 		t.Fatalf("expected error but err == nil")
 	}

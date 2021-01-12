@@ -12,6 +12,7 @@ import (
 	"github.com/open-policy-agent/opa/ast"
 	"github.com/open-policy-agent/opa/metrics"
 
+	"github.com/open-policy-agent/opa/internal/gojsonschema"
 	"github.com/open-policy-agent/opa/internal/storage/mock"
 
 	"github.com/open-policy-agent/opa/storage"
@@ -735,6 +736,7 @@ type testWriteModuleCase struct {
 	storeData    map[string]interface{}
 	expectErr    bool
 	writeToStore bool
+	schema       string
 }
 
 func TestWriteModules(t *testing.T) {
@@ -838,11 +840,75 @@ func TestWriteModules(t *testing.T) {
 			expectErr:    true,
 			writeToStore: false,
 		},
+		{
+			note: "compile with schema",
+			schema: `{
+				"$schema": "http://json-schema.org/draft-07/schema",
+				"$id": "http://example.com/example.json",
+				"type": "object",
+				"title": "The root schema",
+				"description": "The root schema comprises the entire JSON document.",
+				"required": [
+					"a"
+				],
+				"properties": {
+					"a": {
+						"$id": "#/properties/foo",
+						"type": "boolean",
+						"title": "The foo schema",
+						"description": "An explanation about the purpose of this instance."
+					}
+				},
+				"additionalProperties": false
+			}`,
+			expectErr:    false,
+			writeToStore: false,
+		},
+		{
+			note: "compile with schema error: path conflict",
+			bundles: map[string]*Bundle{
+				"bundle1": {
+					Modules: []ModuleFile{
+						{
+							Path: "mod1",
+							Raw:  []byte("package a\np = true"),
+						},
+					},
+				},
+			},
+			storeData: map[string]interface{}{
+				"a": map[string]interface{}{
+					"p": "foo",
+				},
+			},
+			schema: `{
+				"$schema": "http://json-schema.org/draft-07/schema",
+				"$id": "http://example.com/example.json",
+				"type": "object",
+				"title": "The root schema",
+				"description": "The root schema comprises the entire JSON document.",
+				"required": [
+					"a"
+				],
+				"properties": {
+					"a": {
+						"$id": "#/properties/foo",
+						"type": "boolean",
+						"title": "The foo schema",
+						"description": "An explanation about the purpose of this instance."
+					}
+				},
+				"additionalProperties": false
+			}`,
+			expectErr:    true,
+			writeToStore: false,
+		},
 	}
 
 	for _, tc := range cases {
 		testWriteData(t, tc, false)
 		testWriteData(t, tc, true)
+
 	}
 }
 
@@ -852,6 +918,15 @@ func testWriteData(t *testing.T, tc testWriteModuleCase, legacy bool) {
 	testName := tc.note
 	if legacy {
 		testName += "_legacy"
+	}
+
+	var jsonSchema *gojsonschema.Schema
+	var err error
+	if tc.schema != "" {
+		jsonSchema, err = ast.CompileSchemas([]byte(tc.schema), nil)
+		if err != nil {
+			t.Fatalf("unexpected error: %s", err)
+		}
 	}
 
 	t.Run(testName, func(t *testing.T) {
@@ -885,7 +960,11 @@ func testWriteData(t *testing.T, tc testWriteModuleCase, legacy bool) {
 			}
 		}
 
-		err := writeModules(ctx, mockStore, txn, compiler, m, tc.bundles, tc.extraMods, legacy, nil)
+		if jsonSchema != nil {
+			err = writeModules(ctx, mockStore, txn, compiler, m, tc.bundles, tc.extraMods, legacy, jsonSchema.RootSchema)
+		} else {
+			err = writeModules(ctx, mockStore, txn, compiler, m, tc.bundles, tc.extraMods, legacy, nil)
+		}
 		if !tc.expectErr && err != nil {
 			t.Fatalf("unepected error: %s", err)
 		} else if tc.expectErr && err == nil {
