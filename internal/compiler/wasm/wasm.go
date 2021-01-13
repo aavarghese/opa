@@ -664,6 +664,8 @@ func (c *Compiler) compileBlock(block *ir.Block) ([]instruction.Instruction, err
 			if err := c.compileScan(stmt, &instrs); err != nil {
 				return nil, err
 			}
+		case *ir.NopStmt:
+			instrs = append(instrs, instruction.Nop{})
 		case *ir.NotStmt:
 			if err := c.compileNot(stmt, &instrs); err != nil {
 				return nil, err
@@ -776,6 +778,9 @@ func (c *Compiler) compileBlock(block *ir.Block) ([]instruction.Instruction, err
 			instrs = append(instrs, instruction.I32Const{Value: 0})
 			instrs = append(instrs, instruction.I32Ne{})
 			instrs = append(instrs, instruction.BrIf{Index: 0})
+		case *ir.ResetLocalStmt:
+			instrs = append(instrs, instruction.I32Const{Value: 0})
+			instrs = append(instrs, instruction.SetLocal{Index: c.local(stmt.Target)})
 		case *ir.IsDefinedStmt:
 			instrs = append(instrs, instruction.GetLocal{Index: c.local(stmt.Source)})
 			instrs = append(instrs, instruction.I32Eqz{})
@@ -1143,18 +1148,32 @@ func (c *Compiler) emitFunctionDecl(name string, tpe module.FunctionType, export
 	typeIndex := c.emitFunctionType(tpe)
 	c.module.Function.TypeIndices = append(c.module.Function.TypeIndices, typeIndex)
 	c.module.Code.Segments = append(c.module.Code.Segments, module.RawCodeSegment{})
-	c.funcs[name] = uint32((len(c.module.Function.TypeIndices) - 1) + c.functionImportCount())
+	idx := uint32((len(c.module.Function.TypeIndices) - 1) + c.functionImportCount())
+	c.funcs[name] = idx
 
 	if export {
 		c.module.Export.Exports = append(c.module.Export.Exports, module.Export{
 			Name: name,
 			Descriptor: module.ExportDescriptor{
 				Type:  module.FunctionExportType,
-				Index: c.funcs[name],
+				Index: idx,
 			},
 		})
 	}
 
+	// add functions 'name' entry
+	var found bool
+	for _, m := range c.module.Names.Functions {
+		if m.Index == idx {
+			found = true
+		}
+	}
+	if !found {
+		c.module.Names.Functions = append(c.module.Names.Functions, module.NameMap{
+			Index: idx,
+			Name:  name,
+		})
+	}
 }
 
 func (c *Compiler) emitFunctionType(tpe module.FunctionType) uint32 {
