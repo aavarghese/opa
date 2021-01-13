@@ -196,6 +196,13 @@ Set the output format with the --format flag.
 	--format=values    : output line separated JSON arrays containing expression values
 	--format=bindings  : output line separated JSON objects containing variable bindings
 	--format=pretty    : output query results in a human-readable format
+
+Schema
+--------------
+
+The --schema flag will upload a single schema for the input document in JSON Schema format.
+
+	$ opa eval --data policy.rego --input input.json --schema input-schema.json
 `,
 
 		PreRunE: func(cmd *cobra.Command, args []string) error {

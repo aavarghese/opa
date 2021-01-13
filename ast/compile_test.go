@@ -4337,19 +4337,6 @@ func TestWithSchema(t *testing.T) {
 	}
 }
 
-// func TestGoSchema(t *testing.T) {
-// 	jsonSchema, err := CompileSchemas(nil, &GoSchema{})
-// 	if err != nil {
-// 		t.Fatalf("Unable to compile schema")
-// 	}
-// 	t.Logf("jsonschema is %v", jsonSchema)
-// 	newtype, err := parseSchema(jsonSchema.RootSchema)
-// 	t.Logf("trpe is %v", newtype)
-// 	if newtype.String() == "object<apiVersion: string, kind: string, metadata: any, spec: any, status: any>" {
-// 		t.Fatalf("parseSchema returned an incorrect type: %s", newtype.String())
-// 	}
-// }
-
 const objectSchema = `{
 	"$schema": "http://json-schema.org/draft-07/schema",
 	"$id": "http://example.com/example.json",
@@ -4529,19 +4516,3 @@ const podSchema = `
     "$schema": "http://json-schema.org/schema#"
   }
 `
-
-type GoSchema struct {
-	Servers []struct {
-		ID        string   `json:"id"`
-		Protocols []string `json:"protocols"`
-		Ports     []string `json:"ports"`
-	} `json:"servers"`
-	Networks []struct {
-		ID     string `json:"id"`
-		Public bool   `json:"public"`
-	} `json:"networks"`
-	Ports []struct {
-		ID      string `json:"id"`
-		Network string `json:"network"`
-	} `json:"ports"`
-}

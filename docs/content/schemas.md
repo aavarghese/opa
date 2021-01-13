@@ -78,7 +78,7 @@ Consider the following input document:
   $ []
   ```
 
-  The empty value returned is indistinguisble from a situation where the input did not violate the policy. This error is therefore causing the policy not to catch violating inputs appropriately.
+  The empty value returned is indistinguishable from a situation where the input did not violate the policy. This error is therefore causing the policy not to catch violating inputs appropriately.
 
   If we fix the Rego code and change`input.request.kind.kinds` to `input.request.kind.kind`, then we obtain the expected result:
   ```
