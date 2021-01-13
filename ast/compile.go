@@ -356,10 +356,10 @@ func (c *Compiler) Compile(modules map[string]*Module) {
 	c.compile()
 }
 
-// CompileWithSchema runs the compilation process on the input modules.
-func (c *Compiler) CompileWithSchema(modules map[string]*Module, schema interface{}) {
+// WithSchema sets a schema to the compiler
+func (c *Compiler) WithSchema(schema interface{}) *Compiler {
 	c.schema = schema
-	c.Compile(modules)
+	return c
 }
 
 // Failed returns true if a compilation error has been encountered.

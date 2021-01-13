@@ -4274,6 +4274,21 @@ func TestParseSchemaObject(t *testing.T) {
 	testParseSchema(t, objectSchema, "object<b: array<object<a: number, b: array<number>, c: any>>, foo: string>")
 }
 
+func TestParseSchemaRef(t *testing.T) {
+	jsonSchema, err := CompileSchemas([]byte(podSchema), nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %s", err)
+	}
+	newtype, err := parseSchema(jsonSchema.RootSchema)
+	if err != nil {
+		t.Fatalf("unexpected error: %s", err)
+	}
+	if newtype.String() == "object<apiVersion: string, kind: string, metadata: any, spec: any, status: any>" {
+		t.Fatalf("parseSchema returned an incorrect type: %s", newtype.String())
+	}
+
+}
+
 func TestParseSchemaUntypedField(t *testing.T) {
 	testParseSchema(t, untypedFieldObjectSchema, "object<foo: any>")
 }
@@ -4308,6 +4323,32 @@ func TestParseSchemaBadSchema(t *testing.T) {
 		t.Fatalf("Incorrect return from parseSchema with a bad schema")
 	}
 }
+
+func TestWithSchema(t *testing.T) {
+	jsonSchema, err := CompileSchemas([]byte(objectSchema), nil)
+	if err != nil {
+		t.Fatalf("Unable to compile schema")
+	}
+	c := NewCompiler().
+		WithCapabilities(&Capabilities{Builtins: []*Builtin{Split}})
+	c.WithSchema(jsonSchema)
+	if c.schema == nil {
+		t.Fatalf("WithSchema did not set the schema correctly in the compiler")
+	}
+}
+
+// func TestGoSchema(t *testing.T) {
+// 	jsonSchema, err := CompileSchemas(nil, &GoSchema{})
+// 	if err != nil {
+// 		t.Fatalf("Unable to compile schema")
+// 	}
+// 	t.Logf("jsonschema is %v", jsonSchema)
+// 	newtype, err := parseSchema(jsonSchema.RootSchema)
+// 	t.Logf("trpe is %v", newtype)
+// 	if newtype.String() == "object<apiVersion: string, kind: string, metadata: any, spec: any, status: any>" {
+// 		t.Fatalf("parseSchema returned an incorrect type: %s", newtype.String())
+// 	}
+// }
 
 const objectSchema = `{
 	"$schema": "http://json-schema.org/draft-07/schema",
@@ -4442,3 +4483,65 @@ const booleanSchema = `{
 	},
 	"additionalProperties": false
 }`
+
+const podSchema = `
+{
+    "description": "Pod is a collection of containers that can run on a host. This resource is created by clients and scheduled onto hosts.",
+    "properties": {
+      "apiVersion": {
+        "description": "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#resources",
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "kind": {
+        "description": "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#types-kinds",
+        "type": [
+          "string",
+          "null"
+        ],
+        "enum": [
+          "Pod"
+        ]
+      },
+      "metadata": {
+        "$ref": "https://kubernetesjsonschema.dev/v1.14.0/_definitions.json#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.ObjectMeta",
+        "description": "Standard object's metadata. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#metadata"
+      },
+      "spec": {
+        "$ref": "https://kubernetesjsonschema.dev/v1.14.0/_definitions.json#/definitions/io.k8s.api.core.v1.PodSpec",
+        "description": "Specification of the desired behavior of the pod. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#spec-and-status"
+      },
+      "status": {
+        "$ref": "https://kubernetesjsonschema.dev/v1.14.0/_definitions.json#/definitions/io.k8s.api.core.v1.PodStatus",
+        "description": "Most recently observed status of the pod. This data may not be up to date. Populated by the system. Read-only. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#spec-and-status"
+      }
+    },
+    "type": "object",
+    "x-kubernetes-group-version-kind": [
+      {
+        "group": "",
+        "kind": "Pod",
+        "version": "v1"
+      }
+    ],
+    "$schema": "http://json-schema.org/schema#"
+  }
+`
+
+type GoSchema struct {
+	Servers []struct {
+		ID        string   `json:"id"`
+		Protocols []string `json:"protocols"`
+		Ports     []string `json:"ports"`
+	} `json:"servers"`
+	Networks []struct {
+		ID     string `json:"id"`
+		Public bool   `json:"public"`
+	} `json:"networks"`
+	Ports []struct {
+		ID      string `json:"id"`
+		Network string `json:"network"`
+	} `json:"ports"`
+}

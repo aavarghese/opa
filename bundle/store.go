@@ -486,13 +486,11 @@ func writeModules(ctx context.Context, store storage.Store, txn storage.Transact
 	}
 
 	if schema != nil {
-		if compiler.CompileWithSchema(modules, schema); compiler.Failed() {
-			return compiler.Errors
-		}
-	} else {
-		if compiler.Compile(modules); compiler.Failed() {
-			return compiler.Errors
-		}
+		compiler = compiler.WithSchema(schema)
+	}
+
+	if compiler.Compile(modules); compiler.Failed() {
+		return compiler.Errors
 	}
 
 	for bundleName, b := range bundles {
