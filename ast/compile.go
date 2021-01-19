@@ -853,8 +853,7 @@ func (c *Compiler) checkSafetyRuleHeads() {
 	}
 }
 
-//CompileSchemas takes a jsonschema and compiles it.
-func CompileSchemas(byteSchema []byte, goSchema interface{}) (*gojsonschema.Schema, error) {
+func compileSchema(byteSchema []byte, goSchema interface{}) (*gojsonschema.Schema, error) {
 	var refLoader gojsonschema.JSONLoader
 	sl := gojsonschema.NewSchemaLoader()
 
@@ -926,13 +925,18 @@ func parseSchema(schema interface{}) (types.Type, error) {
 	return types.A, nil
 }
 
-func (c *Compiler) setTypesWithSchema(schema interface{}) error { //NEW TYPE CHECKING FUNCTION
-	newtype, err := parseSchema(schema)
+func setTypesWithSchema(schema interface{}) (types.Type, error) { //NEW TYPE CHECKING FUNCTION
+	goJSONSchema, err := compileSchema(nil, schema)
 	if err != nil {
-		return fmt.Errorf("error when type checking %v", err)
+		return nil, fmt.Errorf("compile failed: %s", err.Error())
 	}
-	c.TypeEnv.tree.PutOne(VarTerm("input").Value, newtype)
-	return nil
+
+	newtype, err := parseSchema(goJSONSchema.RootSchema)
+	if err != nil {
+		return nil, fmt.Errorf("error when type checking %v", err)
+	}
+
+	return newtype, nil
 }
 
 // checkTypes runs the type checker on all rules. The type checker builds a
@@ -943,10 +947,11 @@ func (c *Compiler) checkTypes() {
 	checker := newTypeChecker().WithVarRewriter(rewriteVarsInRef(c.RewrittenVars))
 
 	if c.schema != nil {
-		err := c.setTypesWithSchema(c.schema) //NEW TYPE CHECKING WITH SCHEMA
+		newtype, err := setTypesWithSchema(c.schema) //NEW TYPE CHECKING WITH SCHEMA
 		if err != nil {
 			c.err(NewError(TypeErr, nil, err.Error()))
 		}
+		c.TypeEnv.tree.PutOne(VarTerm("input").Value, newtype)
 	}
 
 	env, errs := checker.CheckTypes(c.TypeEnv, sorted)
@@ -1447,7 +1452,6 @@ type queryCompiler struct {
 	after                map[string][]QueryCompilerStageDefinition
 	unsafeBuiltins       map[string]struct{}
 	comprehensionIndices map[*Term]*ComprehensionIndex
-	schema               interface{}
 }
 
 func newQueryCompiler(compiler *Compiler) QueryCompiler {
@@ -1634,11 +1638,23 @@ func (qc *queryCompiler) checkSafety(_ *QueryContext, body Body) (Body, error) {
 
 func (qc *queryCompiler) checkTypes(qctx *QueryContext, body Body) (Body, error) {
 	var errs Errors
+	var newtype types.Type
+	var err error
 	checker := newTypeChecker().WithVarRewriter(rewriteVarsInRef(qc.rewritten, qc.compiler.RewrittenVars))
+
+	if qc.compiler.schema != nil {
+		newtype, err = setTypesWithSchema(qc.compiler.schema) //NEW TYPE CHECKING WITH SCHEMA
+		if err != nil {
+			return nil, NewError(TypeErr, nil, err.Error())
+		}
+	}
+
 	qc.typeEnv, errs = checker.CheckBody(qc.compiler.TypeEnv, body)
 	if len(errs) > 0 {
 		return nil, errs
 	}
+	qc.typeEnv.tree.PutOne(VarTerm("input").Value, newtype)
+
 	return body, nil
 }
 

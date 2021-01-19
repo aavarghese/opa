@@ -201,7 +201,7 @@ Set the output format with the --format flag.
 Schema
 ------
 
-The --schema flag will upload a single schema for the input document in JSON Schema format.
+The -s/--schema flag provides a single JSON Schema used to validate references to the input document.
 
 	$ opa eval --data policy.rego --input input.json --schema input-schema.json
 `,
@@ -423,11 +423,12 @@ func setupEval(args []string, params evalCommandParams) (*evalContext, error) {
 	if err != nil {
 		return nil, err
 	} else if schemaBytes != nil {
-		schema, err := ast.CompileSchemas(schemaBytes, nil)
+		var schema interface{}
+		err := util.Unmarshal(schemaBytes, &schema)
 		if err != nil {
-			return nil, fmt.Errorf("compile failed: %s", err.Error())
+			return nil, fmt.Errorf("unable to parse schema: %s", err.Error())
 		}
-		regoArgs = append(regoArgs, rego.ParsedSchema(schema.RootSchema))
+		regoArgs = append(regoArgs, rego.ParsedSchema(schema))
 	}
 
 	var tracer *topdown.BufferTracer

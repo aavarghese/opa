@@ -4254,7 +4254,7 @@ func TestCompilerPassesTypeCheckNegative(t *testing.T) {
 }
 
 func testParseSchema(t *testing.T, schema, expectedType string) {
-	jsonSchema, err := CompileSchemas([]byte(schema), nil)
+	jsonSchema, err := compileSchema([]byte(schema), nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %s", err)
 	}
@@ -4275,7 +4275,7 @@ func TestParseSchemaObject(t *testing.T) {
 }
 
 func TestParseSchemaRef(t *testing.T) {
-	jsonSchema, err := CompileSchemas([]byte(podSchema), nil)
+	jsonSchema, err := compileSchema([]byte(podSchema), nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %s", err)
 	}
@@ -4307,14 +4307,14 @@ func TestParseSchemaWithBooleanField(t *testing.T) {
 
 func TestCompileSchemaEmptySchema(t *testing.T) {
 	schema := ""
-	jsonSchema, _ := CompileSchemas([]byte(schema), nil)
+	jsonSchema, _ := compileSchema([]byte(schema), nil)
 	if jsonSchema != nil {
 		t.Fatalf("Incorrect return from parseSchema with an empty schema")
 	}
 }
 
 func TestParseSchemaBadSchema(t *testing.T) {
-	jsonSchema, err := CompileSchemas([]byte(objectSchema), nil)
+	jsonSchema, err := compileSchema([]byte(objectSchema), nil)
 	if err != nil {
 		t.Fatalf("Unable to compile schema")
 	}
@@ -4325,7 +4325,7 @@ func TestParseSchemaBadSchema(t *testing.T) {
 }
 
 func TestWithSchema(t *testing.T) {
-	jsonSchema, err := CompileSchemas([]byte(objectSchema), nil)
+	jsonSchema, err := compileSchema([]byte(objectSchema), nil)
 	if err != nil {
 		t.Fatalf("Unable to compile schema")
 	}

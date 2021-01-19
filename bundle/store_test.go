@@ -12,7 +12,6 @@ import (
 	"github.com/open-policy-agent/opa/ast"
 	"github.com/open-policy-agent/opa/metrics"
 
-	"github.com/open-policy-agent/opa/internal/gojsonschema"
 	"github.com/open-policy-agent/opa/internal/storage/mock"
 
 	"github.com/open-policy-agent/opa/storage"
@@ -920,15 +919,6 @@ func testWriteData(t *testing.T, tc testWriteModuleCase, legacy bool) {
 		testName += "_legacy"
 	}
 
-	var jsonSchema *gojsonschema.Schema
-	var err error
-	if tc.schema != "" {
-		jsonSchema, err = ast.CompileSchemas([]byte(tc.schema), nil)
-		if err != nil {
-			t.Fatalf("unexpected error: %s", err)
-		}
-	}
-
 	t.Run(testName, func(t *testing.T) {
 
 		ctx := context.Background()
@@ -960,8 +950,11 @@ func testWriteData(t *testing.T, tc testWriteModuleCase, legacy bool) {
 			}
 		}
 
-		if jsonSchema != nil {
-			err = writeModules(ctx, mockStore, txn, compiler, m, tc.bundles, tc.extraMods, legacy, jsonSchema.RootSchema)
+		var err error
+		if tc.schema != "" {
+			var schema interface{}
+			err = util.Unmarshal([]byte(tc.schema), &schema)
+			err = writeModules(ctx, mockStore, txn, compiler, m, tc.bundles, tc.extraMods, legacy, schema)
 		} else {
 			err = writeModules(ctx, mockStore, txn, compiler, m, tc.bundles, tc.extraMods, legacy, nil)
 		}

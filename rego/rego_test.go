@@ -1817,7 +1817,7 @@ func TestPrepareAndCompileWithSchema(t *testing.T) {
 	x = input.y
 	`
 
-	schema := `{
+	schemaBytes := `{
 		"$schema": "http://json-schema.org/draft-07/schema",
 		"$id": "http://example.com/example.json",
 		"type": "object",
@@ -1835,16 +1835,14 @@ func TestPrepareAndCompileWithSchema(t *testing.T) {
 		"additionalProperties": false
 	}`
 
-	jsonSchema, err := ast.CompileSchemas([]byte(schema), nil)
-	if err != nil {
-		t.Fatalf("Unexpected error: %s", err.Error())
-	}
+	var schema interface{}
+	err := util.Unmarshal([]byte(schemaBytes), &schema)
 
 	r := New(
 		Query("data.test.x"),
 		Module("", module),
 		Package("foo"),
-		ParsedSchema(jsonSchema.RootSchema),
+		ParsedSchema(schema),
 	)
 
 	ctx := context.Background()
