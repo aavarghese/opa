@@ -1676,7 +1676,6 @@ func (r *Rego) compileModules(ctx context.Context, txn storage.Transaction, m me
 			Metrics:      m,
 			Bundles:      r.bundles,
 			ExtraModules: r.parsedModules,
-			Schema:       r.parsedSchema,
 		}
 		err := bundle.Activate(opts)
 		if err != nil {
@@ -2178,7 +2177,12 @@ func (r *Rego) getTxn(ctx context.Context) (storage.Transaction, transactionClos
 func (r *Rego) compilerForTxn(ctx context.Context, store storage.Store, txn storage.Transaction) *ast.Compiler {
 	// Update the compiler to have a valid path conflict check
 	// for the current context and transaction.
-	return r.compiler.WithPathConflictsCheck(storage.NonEmpty(ctx, store, txn))
+	if r.parsedSchema != nil {
+		return r.compiler.WithPathConflictsCheck(storage.NonEmpty(ctx, store, txn)).
+			WithSchema(r.parsedSchema)
+	} else {
+		return r.compiler.WithPathConflictsCheck(storage.NonEmpty(ctx, store, txn))
+	}
 }
 
 func checkPartialResultForRecursiveRefs(body ast.Body, path ast.Ref) bool {

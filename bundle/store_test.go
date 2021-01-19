@@ -950,14 +950,8 @@ func testWriteData(t *testing.T, tc testWriteModuleCase, legacy bool) {
 			}
 		}
 
-		var err error
-		if tc.schema != "" {
-			var schema interface{}
-			err = util.Unmarshal([]byte(tc.schema), &schema)
-			err = writeModules(ctx, mockStore, txn, compiler, m, tc.bundles, tc.extraMods, legacy, schema)
-		} else {
-			err = writeModules(ctx, mockStore, txn, compiler, m, tc.bundles, tc.extraMods, legacy, nil)
-		}
+		err := writeModules(ctx, mockStore, txn, compiler, m, tc.bundles, tc.extraMods, legacy)
+
 		if !tc.expectErr && err != nil {
 			t.Fatalf("unepected error: %s", err)
 		} else if tc.expectErr && err == nil {
