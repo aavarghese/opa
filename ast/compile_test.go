@@ -861,6 +861,13 @@ func TestCompilerCheckTypes(t *testing.T) {
 	assertNotFailed(t, c)
 }
 
+func TestCompilerCheckTypesWithSchema(t *testing.T) {
+	c := NewCompiler()
+	_ = util.Unmarshal([]byte(objectSchema), &c.schema)
+	compileStages(c, c.checkTypes)
+	assertNotFailed(t, c)
+}
+
 func TestCompilerCheckRuleConflicts(t *testing.T) {
 
 	c := getCompilerWithParsedModules(map[string]string{
@@ -4253,12 +4260,8 @@ func TestCompilerPassesTypeCheckNegative(t *testing.T) {
 	}
 }
 
-func testParseSchema(t *testing.T, schema, expectedType string) {
-	jsonSchema, err := compileSchema([]byte(schema), nil)
-	if err != nil {
-		t.Fatalf("unexpected error: %s", err)
-	}
-	newtype, err := parseSchema(jsonSchema.RootSchema)
+func testSetTypesWithSchema(t *testing.T, schema, expectedType string) {
+	newtype, err := setTypesWithSchema([]byte(schema))
 	if err != nil {
 		t.Fatalf("unexpected error: %s", err)
 	}
@@ -4270,11 +4273,11 @@ func testParseSchema(t *testing.T, schema, expectedType string) {
 	}
 }
 
-func TestParseSchemaObject(t *testing.T) {
-	testParseSchema(t, objectSchema, "object<b: array<object<a: number, b: array<number>, c: any>>, foo: string>")
+func testSetTypesWithSchemaObject(t *testing.T) {
+	testSetTypesWithSchema(t, objectSchema, "object<b: array<object<a: number, b: array<number>, c: any>>, foo: string>")
 }
 
-func TestParseSchemaRef(t *testing.T) {
+func testSetTypesWithSchemaRef(t *testing.T) {
 	jsonSchema, err := compileSchema([]byte(podSchema), nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %s", err)
@@ -4289,20 +4292,20 @@ func TestParseSchemaRef(t *testing.T) {
 
 }
 
-func TestParseSchemaUntypedField(t *testing.T) {
-	testParseSchema(t, untypedFieldObjectSchema, "object<foo: any>")
+func testSetTypesWithSchemaUntypedField(t *testing.T) {
+	testSetTypesWithSchema(t, untypedFieldObjectSchema, "object<foo: any>")
 }
 
-func TestParseSchemaNoChildren(t *testing.T) {
-	testParseSchema(t, noChildrenObjectSchema, "object[any: any]")
+func testSetTypesWithSchemaNoChildren(t *testing.T) {
+	testSetTypesWithSchema(t, noChildrenObjectSchema, "object[any: any]")
 }
 
-func TestParseSchemaArrayNoItems(t *testing.T) {
-	testParseSchema(t, arrayNoItemsSchema, "object<b: array[any]>")
+func testSetTypesWithSchemaArrayNoItems(t *testing.T) {
+	testSetTypesWithSchema(t, arrayNoItemsSchema, "object<b: array[any]>")
 }
 
-func TestParseSchemaWithBooleanField(t *testing.T) {
-	testParseSchema(t, booleanSchema, "object<a: boolean>")
+func testSetTypesWithSchemaWithBooleanField(t *testing.T) {
+	testSetTypesWithSchema(t, booleanSchema, "object<a: boolean>")
 }
 
 func TestCompileSchemaEmptySchema(t *testing.T) {
@@ -4313,7 +4316,7 @@ func TestCompileSchemaEmptySchema(t *testing.T) {
 	}
 }
 
-func TestParseSchemaBadSchema(t *testing.T) {
+func testSetTypesWithSchemaBadSchema(t *testing.T) {
 	jsonSchema, err := compileSchema([]byte(objectSchema), nil)
 	if err != nil {
 		t.Fatalf("Unable to compile schema")
@@ -4325,13 +4328,9 @@ func TestParseSchemaBadSchema(t *testing.T) {
 }
 
 func TestWithSchema(t *testing.T) {
-	jsonSchema, err := compileSchema([]byte(objectSchema), nil)
-	if err != nil {
-		t.Fatalf("Unable to compile schema")
-	}
 	c := NewCompiler().
 		WithCapabilities(&Capabilities{Builtins: []*Builtin{Split}})
-	c.WithSchema(jsonSchema)
+	c.WithSchema([]byte(objectSchema))
 	if c.schema == nil {
 		t.Fatalf("WithSchema did not set the schema correctly in the compiler")
 	}

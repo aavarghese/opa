@@ -2180,9 +2180,8 @@ func (r *Rego) compilerForTxn(ctx context.Context, store storage.Store, txn stor
 	if r.parsedSchema != nil {
 		return r.compiler.WithPathConflictsCheck(storage.NonEmpty(ctx, store, txn)).
 			WithSchema(r.parsedSchema)
-	} else {
-		return r.compiler.WithPathConflictsCheck(storage.NonEmpty(ctx, store, txn))
 	}
+	return r.compiler.WithPathConflictsCheck(storage.NonEmpty(ctx, store, txn))
 }
 
 func checkPartialResultForRecursiveRefs(body ast.Body, path ast.Ref) bool {
