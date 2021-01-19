@@ -179,7 +179,6 @@ func TestDisabledTracer(t *testing.T) {
 }
 
 func initTracerTestQuery() *Query {
-	var schemaInt interface{} //empty schema
 	ctx := context.Background()
 	store := inmem.New()
 	inputTerm := &ast.Term{}
@@ -204,8 +203,7 @@ func initTracerTestQuery() *Query {
 		WithCompiler(compiler).
 		WithStore(store).
 		WithTransaction(txn).
-		WithInput(inputTerm).
-		WithSchema(schemaInt)
+		WithInput(inputTerm)
 }
 
 type testQueryTracer struct {

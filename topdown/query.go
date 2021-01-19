@@ -51,7 +51,6 @@ type Query struct {
 	indexing               bool
 	interQueryBuiltinCache cache.InterQueryCache
 	strictBuiltinErrors    bool
-	schema                 interface{}
 }
 
 // Builtin represents a built-in function that queries can call.
@@ -243,13 +242,6 @@ func (q *Query) WithResolver(ref ast.Ref, r resolver.Resolver) *Query {
 	return q
 }
 
-// WithSchema sets the schema object to use for the query. References rooted at
-// schema will be evaluated against this value. This is optional.
-func (q *Query) WithSchema(schema interface{}) *Query {
-	q.schema = schema
-	return q
-}
-
 // PartialRun executes partial evaluation on the query with respect to unknown
 // values. Partial evaluation attempts to evaluate as much of the query as
 // possible without requiring values for the unknowns set on the query. The
@@ -311,7 +303,6 @@ func (q *Query) PartialRun(ctx context.Context) (partials []ast.Body, support []
 		runtime:       q.runtime,
 		indexing:      q.indexing,
 		builtinErrors: &builtinErrors{},
-		schema:        q.schema,
 	}
 
 	if len(q.disableInlining) > 0 {
@@ -436,7 +427,6 @@ func (q *Query) Iter(ctx context.Context, iter func(QueryResult) error) error {
 		runtime:                q.runtime,
 		indexing:               q.indexing,
 		builtinErrors:          &builtinErrors{},
-		schema:                 q.schema,
 	}
 	e.caller = e
 	q.metrics.Timer(metrics.RegoQueryEval).Start()

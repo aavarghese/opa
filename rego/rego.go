@@ -1755,7 +1755,6 @@ func (r *Rego) compileQuery(query ast.Body, m metrics.Metrics, extras []extraSta
 	var qc ast.QueryCompiler
 	if r.parsedSchema != nil {
 		qc = r.compiler.QueryCompiler().
-			WithSchema(r.parsedSchema).
 			WithContext(qctx).
 			WithUnsafeBuiltins(r.unsafeBuiltins)
 	} else {
@@ -1799,10 +1798,6 @@ func (r *Rego) eval(ctx context.Context, ectx *EvalContext) (ResultSet, error) {
 
 	if ectx.parsedInput != nil {
 		q = q.WithInput(ast.NewTerm(ectx.parsedInput))
-	}
-
-	if ectx.rawSchema != nil {
-		q = q.WithSchema(ectx.rawSchema)
 	}
 
 	for i := range ectx.resolvers {
@@ -2003,10 +1998,6 @@ func (r *Rego) partial(ctx context.Context, ectx *EvalContext) (*PartialQueries,
 
 	if ectx.parsedInput != nil {
 		q = q.WithInput(ast.NewTerm(ectx.parsedInput))
-	}
-
-	if ectx.rawSchema != nil {
-		q = q.WithSchema(ectx.rawSchema)
 	}
 
 	for i := range ectx.resolvers {

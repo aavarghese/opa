@@ -199,7 +199,7 @@ Set the output format with the --format flag.
 	--format=pretty    : output query results in a human-readable format
 
 Schema
---------------
+------
 
 The --schema flag will upload a single schema for the input document in JSON Schema format.
 

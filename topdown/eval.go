@@ -77,7 +77,6 @@ type eval struct {
 	genvarid               int
 	runtime                *ast.Term
 	builtinErrors          *builtinErrors
-	schema                 interface{}
 }
 
 func (e *eval) Run(iter evalIterator) error {

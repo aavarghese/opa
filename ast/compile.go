@@ -190,8 +190,6 @@ type QueryCompiler interface {
 	// the named stage.
 	WithStageAfter(after string, stage QueryCompilerStageDefinition) QueryCompiler
 
-	WithSchema(schema interface{}) QueryCompiler
-
 	// RewrittenVars maps generated vars in the compiled query to vars from the
 	// parsed query. For example, given the query "input := 1" the rewritten
 	// query would be "__local0__ = 1". The mapping would then be {__local0__: input}.
@@ -1474,11 +1472,6 @@ func (qc *queryCompiler) WithStageAfter(after string, stage QueryCompilerStageDe
 
 func (qc *queryCompiler) WithUnsafeBuiltins(unsafe map[string]struct{}) QueryCompiler {
 	qc.unsafeBuiltins = unsafe
-	return qc
-}
-
-func (qc *queryCompiler) WithSchema(schema interface{}) QueryCompiler {
-	qc.schema = schema
 	return qc
 }
 
