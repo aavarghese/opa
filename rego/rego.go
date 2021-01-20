@@ -1061,6 +1061,10 @@ func New(options ...func(r *Rego)) *Rego {
 			WithBuiltins(r.builtinDecls)
 	}
 
+	if r.parsedSchema != nil {
+		r.compiler.WithSchema(r.parsedSchema)
+	}
+
 	if r.store == nil {
 		r.store = inmem.New()
 		r.ownStore = true
@@ -2177,10 +2181,6 @@ func (r *Rego) getTxn(ctx context.Context) (storage.Transaction, transactionClos
 func (r *Rego) compilerForTxn(ctx context.Context, store storage.Store, txn storage.Transaction) *ast.Compiler {
 	// Update the compiler to have a valid path conflict check
 	// for the current context and transaction.
-	if r.parsedSchema != nil {
-		return r.compiler.WithPathConflictsCheck(storage.NonEmpty(ctx, store, txn)).
-			WithSchema(r.parsedSchema)
-	}
 	return r.compiler.WithPathConflictsCheck(storage.NonEmpty(ctx, store, txn))
 }
 
