@@ -185,7 +185,7 @@ func TestRegoInputs(t *testing.T) {
 			r := New(
 				Query("input"),
 				Input(tc.input),
-				ParsedSchema(nil),
+				Schemas(nil),
 			)
 			assertEval(t, r, tc.expected)
 		})
@@ -1499,7 +1499,7 @@ func TestRegoEvalModulesOnCompiler(t *testing.T) {
 	pq, err := New(
 		Compiler(compiler),
 		Query("data.a.p"),
-		ParsedSchema(nil),
+		Schemas(nil),
 	).PrepareForEval(ctx)
 
 	if err != nil {
@@ -1842,7 +1842,7 @@ func TestPrepareAndCompileWithSchema(t *testing.T) {
 		Query("data.test.x"),
 		Module("", module),
 		Package("foo"),
-		ParsedSchema(schema),
+		Schemas(&ast.SchemaSet{ByPath: map[string]interface{}{"input": schema}}),
 	)
 
 	ctx := context.Background()

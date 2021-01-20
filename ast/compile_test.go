@@ -863,7 +863,13 @@ func TestCompilerCheckTypes(t *testing.T) {
 
 func TestCompilerCheckTypesWithSchema(t *testing.T) {
 	c := NewCompiler()
-	_ = util.Unmarshal([]byte(objectSchema), &c.schema)
+	var schema interface{}
+	err := util.Unmarshal([]byte(objectSchema), &schema)
+	if err != nil {
+		t.Fatal("Unexpected error:", err)
+	}
+	schemaSet := &SchemaSet{ByPath: map[string]interface{}{"input": schema}}
+	c.WithSchemas(schemaSet)
 	compileStages(c, c.checkTypes)
 	assertNotFailed(t, c)
 }
@@ -4339,8 +4345,9 @@ func TestParseSchemaWithSchemaBadSchema(t *testing.T) {
 func TestWithSchema(t *testing.T) {
 	c := NewCompiler().
 		WithCapabilities(&Capabilities{Builtins: []*Builtin{Split}})
-	c.WithSchema([]byte(objectSchema))
-	if c.schema == nil {
+	schemaSet := &SchemaSet{ByPath: map[string]interface{}{"input": objectSchema}}
+	c.WithSchemas(schemaSet)
+	if c.schemaSet == nil {
 		t.Fatalf("WithSchema did not set the schema correctly in the compiler")
 	}
 }

@@ -103,7 +103,12 @@ type Compiler struct {
 	unsafeBuiltinsMap    map[string]struct{}           // user-supplied set of unsafe built-ins functions to block (deprecated: use capabilities)
 	comprehensionIndices map[*Term]*ComprehensionIndex // comprehension key index
 	initialized          bool                          // indicates if init() has been called
-	schema               interface{}
+	schemaSet            *SchemaSet
+}
+
+// SchemaSet holds a map from a path to a schema
+type SchemaSet struct {
+	ByPath map[string]interface{}
 }
 
 // CompilerStage defines the interface for stages in the compiler.
@@ -354,9 +359,9 @@ func (c *Compiler) Compile(modules map[string]*Module) {
 	c.compile()
 }
 
-// WithSchema sets a schema to the compiler
-func (c *Compiler) WithSchema(schema interface{}) *Compiler {
-	c.schema = schema
+// WithSchemas sets a schemaSet to the compiler
+func (c *Compiler) WithSchemas(schemas *SchemaSet) *Compiler {
+	c.schemaSet = schemas
 	return c
 }
 
@@ -925,7 +930,7 @@ func parseSchema(schema interface{}) (types.Type, error) {
 	return types.A, nil
 }
 
-func setTypesWithSchema(schema interface{}) (types.Type, error) { //NEW TYPE CHECKING FUNCTION
+func setTypesWithSchema(schema interface{}) (types.Type, error) {
 	goJSONSchema, err := compileSchema(nil, schema)
 	if err != nil {
 		return nil, fmt.Errorf("compile failed: %s", err.Error())
@@ -939,6 +944,21 @@ func setTypesWithSchema(schema interface{}) (types.Type, error) { //NEW TYPE CHE
 	return newtype, nil
 }
 
+func (c *Compiler) setInputType() {
+	if c.schemaSet != nil {
+		if c.schemaSet.ByPath != nil {
+			schema := c.schemaSet.ByPath["input"]
+			if schema != nil {
+				newtype, err := setTypesWithSchema(schema)
+				if err != nil {
+					c.err(NewError(TypeErr, nil, err.Error()))
+				}
+				c.TypeEnv.tree.PutOne(VarTerm("input").Value, newtype)
+			}
+		}
+	}
+}
+
 // checkTypes runs the type checker on all rules. The type checker builds a
 // TypeEnv that is stored on the compiler.
 func (c *Compiler) checkTypes() {
@@ -946,13 +966,7 @@ func (c *Compiler) checkTypes() {
 	sorted, _ := c.Graph.Sort()
 	checker := newTypeChecker().WithVarRewriter(rewriteVarsInRef(c.RewrittenVars))
 
-	if c.schema != nil {
-		newtype, err := setTypesWithSchema(c.schema) //NEW TYPE CHECKING WITH SCHEMA
-		if err != nil {
-			c.err(NewError(TypeErr, nil, err.Error()))
-		}
-		c.TypeEnv.tree.PutOne(VarTerm("input").Value, newtype)
-	}
+	c.setInputType()
 
 	env, errs := checker.CheckTypes(c.TypeEnv, sorted)
 	for _, err := range errs {
@@ -1639,15 +1653,9 @@ func (qc *queryCompiler) checkSafety(_ *QueryContext, body Body) (Body, error) {
 func (qc *queryCompiler) checkTypes(qctx *QueryContext, body Body) (Body, error) {
 	var errs Errors
 	var newtype types.Type
-	var err error
 	checker := newTypeChecker().WithVarRewriter(rewriteVarsInRef(qc.rewritten, qc.compiler.RewrittenVars))
 
-	if qc.compiler.schema != nil {
-		newtype, err = setTypesWithSchema(qc.compiler.schema) //NEW TYPE CHECKING WITH SCHEMA
-		if err != nil {
-			return nil, NewError(TypeErr, nil, err.Error())
-		}
-	}
+	qc.compiler.setInputType()
 
 	qc.typeEnv, errs = checker.CheckBody(qc.compiler.TypeEnv, body)
 	if len(errs) > 0 {

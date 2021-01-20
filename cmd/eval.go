@@ -428,7 +428,8 @@ func setupEval(args []string, params evalCommandParams) (*evalContext, error) {
 		if err != nil {
 			return nil, fmt.Errorf("unable to parse schema: %s", err.Error())
 		}
-		regoArgs = append(regoArgs, rego.ParsedSchema(schema))
+		schemaSet := &ast.SchemaSet{ByPath: map[string]interface{}{"input": schema}}
+		regoArgs = append(regoArgs, rego.Schemas(schemaSet))
 	}
 
 	var tracer *topdown.BufferTracer

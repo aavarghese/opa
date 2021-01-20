@@ -101,8 +101,6 @@ type EvalContext struct {
 	indexing               bool
 	interQueryBuiltinCache cache.InterQueryCache
 	resolvers              []refResolver
-	hasSchema              bool
-	rawSchema              *interface{}
 }
 
 // EvalOption defines a function to set an option on an EvalConfig
@@ -316,12 +314,6 @@ func (pq preparedQuery) newEvalContext(ctx context.Context, options []EvalOption
 		}
 	}
 
-	// If we didn't get an schema specified in the Eval options
-	// then fall back to the Rego object's input fields.
-	if !ectx.hasSchema {
-		ectx.rawSchema = pq.r.rawSchema
-	}
-
 	return ectx, finishFunc, nil
 }
 
@@ -526,8 +518,7 @@ type Rego struct {
 	interQueryBuiltinCache cache.InterQueryCache
 	strictBuiltinErrors    bool
 	resolvers              []refResolver
-	rawSchema              *interface{}
-	parsedSchema           interface{}
+	schemaSet              *ast.SchemaSet
 }
 
 // Function represents a built-in function that is callable in Rego.
@@ -1032,10 +1023,10 @@ func Resolver(ref ast.Ref, r resolver.Resolver) func(r *Rego) {
 	}
 }
 
-// ParsedSchema sets the schema
-func ParsedSchema(x interface{}) func(r *Rego) {
+// Schemas sets the schemaSet
+func Schemas(x *ast.SchemaSet) func(r *Rego) {
 	return func(r *Rego) {
-		r.parsedSchema = x
+		r.schemaSet = x
 	}
 }
 
@@ -1061,8 +1052,8 @@ func New(options ...func(r *Rego)) *Rego {
 			WithBuiltins(r.builtinDecls)
 	}
 
-	if r.parsedSchema != nil {
-		r.compiler.WithSchema(r.parsedSchema)
+	if r.schemaSet != nil {
+		r.compiler.WithSchemas(r.schemaSet)
 	}
 
 	if r.store == nil {
@@ -1479,7 +1470,7 @@ func (r *Rego) prepare(ctx context.Context, qType queryType, extras []extraStage
 		return err
 	}
 
-	r.parsedSchema, err = r.parseSchema()
+	r.schemaSet, err = r.schemas()
 	if err != nil {
 		return err
 	}
@@ -1622,9 +1613,9 @@ func (r *Rego) parseInput() (ast.Value, error) {
 	return r.parseRawInput(r.rawInput, r.metrics)
 }
 
-func (r *Rego) parseSchema() (interface{}, error) {
-	if r.parsedSchema != nil {
-		return r.parsedSchema, nil
+func (r *Rego) schemas() (*ast.SchemaSet, error) {
+	if r.schemaSet != nil {
+		return r.schemaSet, nil
 	}
 	return nil, nil
 }
@@ -1756,15 +1747,9 @@ func (r *Rego) compileQuery(query ast.Body, m metrics.Metrics, extras []extraSta
 		WithImports(imports)
 
 	var qc ast.QueryCompiler
-	if r.parsedSchema != nil {
-		qc = r.compiler.QueryCompiler().
-			WithContext(qctx).
-			WithUnsafeBuiltins(r.unsafeBuiltins)
-	} else {
-		qc = r.compiler.QueryCompiler().
-			WithContext(qctx).
-			WithUnsafeBuiltins(r.unsafeBuiltins)
-	}
+	qc = r.compiler.QueryCompiler().
+		WithContext(qctx).
+		WithUnsafeBuiltins(r.unsafeBuiltins)
 
 	for _, extra := range extras {
 		qc = qc.WithStageAfter(extra.after, extra.stage)
@@ -1888,7 +1873,6 @@ func (r *Rego) partialResult(ctx context.Context, pCfg *PrepareConfig) (PartialR
 		instrumentation:  r.instrumentation,
 		indexing:         true,
 		resolvers:        r.resolvers,
-		rawSchema:        &r.parsedSchema,
 	}
 
 	disableInlining := r.disableInlining
