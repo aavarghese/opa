@@ -1652,7 +1652,6 @@ func (qc *queryCompiler) checkSafety(_ *QueryContext, body Body) (Body, error) {
 
 func (qc *queryCompiler) checkTypes(qctx *QueryContext, body Body) (Body, error) {
 	var errs Errors
-	var newtype types.Type
 	checker := newTypeChecker().WithVarRewriter(rewriteVarsInRef(qc.rewritten, qc.compiler.RewrittenVars))
 
 	qc.compiler.setInputType()
@@ -1661,7 +1660,6 @@ func (qc *queryCompiler) checkTypes(qctx *QueryContext, body Body) (Body, error)
 	if len(errs) > 0 {
 		return nil, errs
 	}
-	qc.typeEnv.tree.PutOne(VarTerm("input").Value, newtype)
 
 	return body, nil
 }
