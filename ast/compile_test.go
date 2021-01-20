@@ -4260,8 +4260,13 @@ func TestCompilerPassesTypeCheckNegative(t *testing.T) {
 	}
 }
 
-func testSetTypesWithSchema(t *testing.T, schema, expectedType string) {
-	newtype, err := setTypesWithSchema([]byte(schema))
+func testParseSchema(t *testing.T, schema, expectedType string) {
+	var sch interface{}
+	err := util.Unmarshal([]byte(schema), &sch)
+	if err != nil {
+		t.Fatalf("unexpected error: %s", err)
+	}
+	newtype, err := setTypesWithSchema(sch)
 	if err != nil {
 		t.Fatalf("unexpected error: %s", err)
 	}
@@ -4273,18 +4278,22 @@ func testSetTypesWithSchema(t *testing.T, schema, expectedType string) {
 	}
 }
 
-func testSetTypesWithSchemaObject(t *testing.T) {
-	testSetTypesWithSchema(t, objectSchema, "object<b: array<object<a: number, b: array<number>, c: any>>, foo: string>")
+func TestParseSchemaObject(t *testing.T) {
+	testParseSchema(t, objectSchema, "object<b: array<object<a: number, b: array<number>, c: any>>, foo: string>")
 }
 
-func testSetTypesWithSchemaRef(t *testing.T) {
-	jsonSchema, err := compileSchema([]byte(podSchema), nil)
+func TestSetTypesWithSchemaRef(t *testing.T) {
+	var sch interface{}
+	err := util.Unmarshal([]byte(podSchema), &sch)
 	if err != nil {
 		t.Fatalf("unexpected error: %s", err)
 	}
-	newtype, err := parseSchema(jsonSchema.RootSchema)
+	newtype, err := setTypesWithSchema(sch)
 	if err != nil {
 		t.Fatalf("unexpected error: %s", err)
+	}
+	if newtype == nil {
+		t.Fatalf("parseSchema returned nil type")
 	}
 	if newtype.String() == "object<apiVersion: string, kind: string, metadata: any, spec: any, status: any>" {
 		t.Fatalf("parseSchema returned an incorrect type: %s", newtype.String())
@@ -4292,20 +4301,20 @@ func testSetTypesWithSchemaRef(t *testing.T) {
 
 }
 
-func testSetTypesWithSchemaUntypedField(t *testing.T) {
-	testSetTypesWithSchema(t, untypedFieldObjectSchema, "object<foo: any>")
+func TestParseSchemaUntypedField(t *testing.T) {
+	testParseSchema(t, untypedFieldObjectSchema, "object<foo: any>")
 }
 
-func testSetTypesWithSchemaNoChildren(t *testing.T) {
-	testSetTypesWithSchema(t, noChildrenObjectSchema, "object[any: any]")
+func TestParseSchemaNoChildren(t *testing.T) {
+	testParseSchema(t, noChildrenObjectSchema, "object[any: any]")
 }
 
-func testSetTypesWithSchemaArrayNoItems(t *testing.T) {
-	testSetTypesWithSchema(t, arrayNoItemsSchema, "object<b: array[any]>")
+func TestParseSchemaArrayNoItems(t *testing.T) {
+	testParseSchema(t, arrayNoItemsSchema, "object<b: array[any]>")
 }
 
-func testSetTypesWithSchemaWithBooleanField(t *testing.T) {
-	testSetTypesWithSchema(t, booleanSchema, "object<a: boolean>")
+func TestParseSchemaBooleanField(t *testing.T) {
+	testParseSchema(t, booleanSchema, "object<a: boolean>")
 }
 
 func TestCompileSchemaEmptySchema(t *testing.T) {
@@ -4316,7 +4325,7 @@ func TestCompileSchemaEmptySchema(t *testing.T) {
 	}
 }
 
-func testSetTypesWithSchemaBadSchema(t *testing.T) {
+func TestParseSchemaWithSchemaBadSchema(t *testing.T) {
 	jsonSchema, err := compileSchema([]byte(objectSchema), nil)
 	if err != nil {
 		t.Fatalf("Unable to compile schema")
