@@ -13,14 +13,14 @@ The `-s` flag can be used to upload a single schema for the input document in JS
 -s, --schema string set schema file path
 ```
 
-Example: 
+Example:
 ```
 opa eval data.envoy.authz.allow -i example/envoy/input.json -d example/envoy/policy.rego -s example/envoy/input-schema.json
 ```
+Samples provided at: https://github.com/aavarghese/opa-schema-examples/tree/main/envoy
 
-Samples provided here: https://github.com/aavarghese/opa-schema-examples/tree/main/envoy
 
-{{< figure src="OPATypeChecking_PR3053.gif" caption="Demo" >}}
+{{< figure src="OPATypeChecking_PR3053.gif" width="130" caption="Demo" >}}
 
 ## Usage Scenario
 
