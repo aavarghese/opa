@@ -1,17 +1,13 @@
 ---
-title: TypeChecking
+title: Type Checking
 kind: misc
 weight: 2
 ---
 
-# Using schemas to enhance the Rego type checker
+## Using schemas to enhance the Rego type checker
 
-You can provide an input schema to `opa eval` to improve static type checking and get more precise error reports, as you develop Rego code.
-
-
-## Usage
-
-We added a new query argument to `opa eval` to support uploading of a single schema for the input document in JSON Schema format.
+You can provide an input schema to `opa eval` to improve static type checking and get more precise error reports as you develop Rego code.
+The `-s` flag can be used to upload a single schema for the input document in JSON Schema format.
 
 ```
 -s, --schema string set schema file path
@@ -23,7 +19,7 @@ Consider the envoy request schema provided at: https://github.com/aavarghese/opa
 opa eval data.envoy.authz.allow -i example/envoy/input.json -d example/envoy/policy.rego -s example/envoy/input-schema.json
 ```
 
-![Schema Demo](OPATypeChecking_PR3053.gif)
+![Schema Demo](images/OPATypeChecking_PR3053.gif)
 
 ## Example
 
