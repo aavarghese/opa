@@ -1,8 +1,13 @@
+---
+title: TypeChecking
+kind: misc
+weight: 2
+---
+
 # Using schemas to enhance the Rego type checker
 
-A new feature allows Rego's type system to take into account the schemas for input documents. This adds precision to type checking and helps prevent errors when writing Rego code. It helps users by rejecting erroneous code statically and improving developer productivity. We adopt JSON Schema as the format for providing schemas.
+You can provide an input schema to `opa eval` to improve static type checking and get more precise error reports, as you develop Rego code.
 
-Rego's existing gradual type system is ideal for this feature, since it allows for a type to be only partially known statically. This accomodates the incompleteness found typically in schemas, such as for example, specifying a field to have an `object` type but without further description of its fields. By integrating schemas, the type checker has more type information about certain variables statically and can give more precise error reports.
 
 ## Usage
 
