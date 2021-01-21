@@ -19,7 +19,7 @@ Consider the envoy request schema provided at: https://github.com/aavarghese/opa
 opa eval data.envoy.authz.allow -i example/envoy/input.json -d example/envoy/policy.rego -s example/envoy/input-schema.json
 ```
 
-![Schema Demo](images/OPATypeChecking_PR3053.gif)
+{{< figure src="OPATypeChecking_PR3053.gif" width="65" caption="Schema Demo" >}}
 
 ## Example
 
