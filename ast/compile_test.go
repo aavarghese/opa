@@ -4325,14 +4325,24 @@ func TestParseSchemaBooleanField(t *testing.T) {
 
 func TestCompileSchemaEmptySchema(t *testing.T) {
 	schema := ""
-	jsonSchema, _ := compileSchema([]byte(schema), nil)
+	var sch interface{}
+	err := util.Unmarshal([]byte(schema), &sch)
+	if err != nil {
+		t.Fatalf("unexpected error: %s", err)
+	}
+	jsonSchema, _ := compileSchema(sch)
 	if jsonSchema != nil {
 		t.Fatalf("Incorrect return from parseSchema with an empty schema")
 	}
 }
 
 func TestParseSchemaWithSchemaBadSchema(t *testing.T) {
-	jsonSchema, err := compileSchema([]byte(objectSchema), nil)
+	var sch interface{}
+	err := util.Unmarshal([]byte(objectSchema), &sch)
+	if err != nil {
+		t.Fatalf("unexpected error: %s", err)
+	}
+	jsonSchema, err := compileSchema(sch)
 	if err != nil {
 		t.Fatalf("Unable to compile schema")
 	}

@@ -487,7 +487,6 @@ func writeModules(ctx context.Context, store storage.Store, txn storage.Transact
 	if compiler.Compile(modules); compiler.Failed() {
 		return compiler.Errors
 	}
-
 	for bundleName, b := range bundles {
 		for _, mf := range b.Modules {
 			var path string

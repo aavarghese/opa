@@ -858,13 +858,11 @@ func (c *Compiler) checkSafetyRuleHeads() {
 	}
 }
 
-func compileSchema(byteSchema []byte, goSchema interface{}) (*gojsonschema.Schema, error) {
+func compileSchema(goSchema interface{}) (*gojsonschema.Schema, error) {
 	var refLoader gojsonschema.JSONLoader
 	sl := gojsonschema.NewSchemaLoader()
 
-	if byteSchema != nil {
-		refLoader = gojsonschema.NewBytesLoader(byteSchema)
-	} else if goSchema != nil {
+	if goSchema != nil {
 		refLoader = gojsonschema.NewGoLoader(goSchema)
 	} else {
 		return nil, fmt.Errorf("no schema as input to compile")
@@ -931,7 +929,7 @@ func parseSchema(schema interface{}) (types.Type, error) {
 }
 
 func setTypesWithSchema(schema interface{}) (types.Type, error) {
-	goJSONSchema, err := compileSchema(nil, schema)
+	goJSONSchema, err := compileSchema(schema)
 	if err != nil {
 		return nil, fmt.Errorf("compile failed: %s", err.Error())
 	}
