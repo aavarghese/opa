@@ -13,15 +13,16 @@ The `-s` flag can be used to upload a single schema for the input document in JS
 -s, --schema string set schema file path
 ```
 
-Consider the envoy request schema provided at: https://github.com/aavarghese/opa-schema-examples/tree/main/envoy
-
+Example: 
 ```
 opa eval data.envoy.authz.allow -i example/envoy/input.json -d example/envoy/policy.rego -s example/envoy/input-schema.json
 ```
 
-{{< figure src="OPATypeChecking_PR3053.gif" width="65" caption="Schema Demo" >}}
+Samples provided here: https://github.com/aavarghese/opa-schema-examples/tree/main/envoy
 
-## Example
+{{< figure src="OPATypeChecking_PR3053.gif" caption="Demo" >}}
+
+## Usage Scenario
 
 Consider the following Rego code, which assumes as input a Kubernetes admission review. For resources that are `Pod`s, it checks that the image name
 starts with a specific prefix.
