@@ -1050,10 +1050,9 @@ func New(options ...func(r *Rego)) *Rego {
 		r.compiler = ast.NewCompiler().
 			WithUnsafeBuiltins(r.unsafeBuiltins).
 			WithBuiltins(r.builtinDecls)
-	}
-
-	if r.schemaSet != nil {
-		r.compiler.WithSchemas(r.schemaSet)
+		if r.schemaSet != nil {
+			r.compiler.WithSchemas(r.schemaSet)
+		}
 	}
 
 	if r.store == nil {
