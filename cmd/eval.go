@@ -422,7 +422,9 @@ func setupEval(args []string, params evalCommandParams) (*evalContext, error) {
 	schemaBytes, err := readSchemaBytes(params)
 	if err != nil {
 		return nil, err
-	} else if schemaBytes != nil {
+	}
+
+	if schemaBytes != nil {
 		var schema interface{}
 		err := util.Unmarshal(schemaBytes, &schema)
 		if err != nil {
