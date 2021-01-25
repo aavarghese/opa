@@ -1,20 +1,15 @@
-# gojsonschema (Details of forked repository also residing in OPA's internal/)
+# gojsonschema (Details of library residing in OPA's internal)
 
 ## Description
 
-https://github.com/xeipuuv/gojsonschema has been forked into https://github.com/aavarghese/gojsonschema to make modifications necessary for 
-setting Rego types in OPA, using schemas returned from `gojsonschema`s `Compile` utility.
-
-Contents in this `internal/gojsonschema` folder is a duplicate of the following branch: https://github.com/aavarghese/gojsonschema/tree/schemaFields, and will be maintained simultaneously. 
+https://github.com/xeipuuv/gojsonschema was duplicated into `internal/gojsonschema` folder and modified to make it possible 
+to set Rego types in OPA, using schemas returned from `gojsonschema`s `Compile` utility.
 
 The modifications done are as below:
 
-1. Some of the private fields in `gojsonschema`'s structs, [`schema`](https://github.com/aavarghese/gojsonschema/blob/schemaFields/schema.go#L54) and [`subSchema`](https://github.com/aavarghese/gojsonschema/blob/schemaFields/subSchema.go#L81) have been exported (publicized)* so that OPA's type checking code can access and manipulate the values returned by `gojsonschema`s [Compile](https://github.com/aavarghese/gojsonschema/blob/schemaFields/schemaLoader.go#L147),
+1. Some of the private fields in `gojsonschema`'s structs, `schema` and `subSchema` have been exported (publicized) so that OPA's type checking code can access and manipulate the values returned by `gojsonschema`s `Compile` method,
 
 2. Also, other changes in `gojsonschema`'s code include fixes to satisfy OPA's lint and format checker scripts. Hence, this `internal/gojsonschema` is in conformance with OPA's code style.
-
-Note: 
-*[gojsonschema](https://github.com/xeipuuv/gojsonschema) library was not designed for our specific use case, which is why the schema and sub-schema Go structs have private fields. We, as OPA contributors, have reached an agreement with the OPA founders that the best course of action currently, is to include these relevant changes in `internal/` as such. 
 
 [![GoDoc](https://godoc.org/github.com/xeipuuv/gojsonschema?status.svg)](https://godoc.org/github.com/xeipuuv/gojsonschema)
 [![Build Status](https://travis-ci.org/xeipuuv/gojsonschema.svg)](https://travis-ci.org/xeipuuv/gojsonschema)
