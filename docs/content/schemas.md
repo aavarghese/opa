@@ -20,7 +20,6 @@ opa eval data.envoy.authz.allow -i example/envoy/input.json -d example/envoy/pol
 Samples provided at: https://github.com/aavarghese/opa-schema-examples/tree/main/envoy
 
 
-{{< figure src="OPATypeChecking_PR3053.gif" width="130" caption="Demo" >}}
 
 ## Usage Scenario
 
@@ -90,7 +89,7 @@ Consider the following input document:
   ]
   ```
 
-  With the new feature, it is now possible to pass a schema to `opa eval`, written in JSON Schema. Consider the admission review schema provided at:
+  With this feature, it is possible to pass a schema to `opa eval`, written in JSON Schema. Consider the admission review schema provided at:
   https://github.com/aavarghese/opa-schema-examples/blob/main/kubernetes/admission-schema.json
 
   We can pass this schema to the evaluator as follows:
@@ -109,6 +108,14 @@ Consider the following input document:
 
   This indicates the error to the Rego developer right away, without having the need to observe the results of runs on actual data, thereby improving productivity.
 
+
+## References
+
+For more examples, please see https://github.com/aavarghese/opa-schema-examples
+
+This contains samples for Envoy, Kubernetes, and Terraform including corresponding JSON Schemas. 
+
+For a reference on JSON Schema please see: http://json-schema.org/understanding-json-schema/reference/index.html
 
 ## Limitations
 
