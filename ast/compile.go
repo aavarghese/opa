@@ -103,17 +103,12 @@ type Compiler struct {
 	unsafeBuiltinsMap    map[string]struct{}           // user-supplied set of unsafe built-ins functions to block (deprecated: use capabilities)
 	comprehensionIndices map[*Term]*ComprehensionIndex // comprehension key index
 	initialized          bool                          // indicates if init() has been called
-<<<<<<< HEAD
 	schemaSet            *SchemaSet
 }
 
 // SchemaSet holds a map from a path to a schema
 type SchemaSet struct {
 	ByPath map[string]interface{}
-=======
-	schema               interface{}                   // input schema
-	schemaStore          interface{}                   // schema store
->>>>>>> 5e4c657c... Processing schema annotations
 }
 
 // CompilerStage defines the interface for stages in the compiler.
@@ -307,13 +302,6 @@ func (c *Compiler) WithStageAfter(after string, stage CompilerStageDefinition) *
 // the Compiler instance.
 func (c *Compiler) WithMetrics(metrics metrics.Metrics) *Compiler {
 	c.metrics = metrics
-	return c
-}
-
-// WithSchemaStore will set the schema store for
-// the Compiler instance.
-func (c *Compiler) WithSchemaStore(schemas interface{}) *Compiler {
-	c.schemaStore = schemas
 	return c
 }
 
@@ -974,7 +962,7 @@ func (c *Compiler) setInputType() {
 func (c *Compiler) checkTypes() {
 	// Recursion is caught in earlier step, so this cannot fail.
 	sorted, _ := c.Graph.Sort()
-	checker := newTypeChecker().WithVarRewriter(rewriteVarsInRef(c.RewrittenVars)).WithSchemas(c.schemaStore)
+	checker := newTypeChecker().WithVarRewriter(rewriteVarsInRef(c.RewrittenVars)).WithSchemas(c.schemaSet)
 
 	c.setInputType()
 
