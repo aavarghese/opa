@@ -9,9 +9,9 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/open-policy-agent/opa/internal/gojsonschema"
 	"github.com/open-policy-agent/opa/types"
 	"github.com/open-policy-agent/opa/util"
-	"github.com/xeipuuv/gojsonschema"
 )
 
 type rewriteVars func(x Ref) Ref
@@ -168,11 +168,11 @@ func (tc *typeChecker) getSchema(schemaPath string) (interface{}, error) {
 
 func getObjectType(names []string, compiledSchema *gojsonschema.Schema) (types.Type, error) {
 	if len(names) <= 1 {
-		staticProps, err := parseSchemaRecursive(compiledSchema.RootSchema)
+		staticProps, err := parseSchema(compiledSchema.RootSchema)
 		if err != nil {
 			return nil, err
 		}
-		return types.NewObject(staticProps, nil), nil
+		return staticProps, nil
 	}
 	objectType, err := getObjectType(names[1:], compiledSchema)
 	if err != nil {
@@ -226,26 +226,21 @@ func (tc *typeChecker) checkRule(env *TypeEnv, rule *Rule) {
 			if err != nil {
 				errors = append(errors, NewError(TypeErr, rule.Location, err.Error()))
 			} else {
-				compiledSchema, err := CompileSchemas(nil, schema)
+				staticProps, err := setTypesWithSchema(schema)
 				if err != nil {
 					errors = append(errors, NewError(TypeErr, rule.Location, err.Error()))
 				} else {
-					staticProps, err := parseSchemaRecursive(compiledSchema.RootSchema)
-					if err != nil {
-						errors = append(errors, NewError(TypeErr, rule.Location, err.Error()))
-					}
-
 					ref := MustParseRef(annot.Name)
 					prefixName, t := getPrefixToOverride(annot.Name, env)
 
 					if t == nil || prefixName == annot.Name {
-						env.tree.Put(ref, types.NewObject(staticProps, nil))
+						env.tree.Put(ref, staticProps)
 						defer env.tree.DeleteKey(ref)
 					} else {
 						refPrefix := MustParseRef(prefixName)
 						name := strings.TrimPrefix(annot.Name, prefixName+".")
 						names := strings.Split(name, ".")
-						newType := override(names, t, types.NewObject(staticProps, nil))
+						newType := override(names, t, staticProps)
 						env.tree.Put(refPrefix, newType)
 						defer env.tree.Put(refPrefix, t)
 					}
