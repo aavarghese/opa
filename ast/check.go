@@ -156,14 +156,17 @@ func (tc *typeChecker) checkLanguageBuiltins(env *TypeEnv, builtins map[string]*
 func (tc *typeChecker) getSchema(schemaPath string) (interface{}, error) {
 	path := strings.Split(schemaPath, ".")
 	schema := tc.schemaStore
-	for _, p := range path {
-		schemaMap, ok := schema.(map[string]interface{})
-		if !ok {
-			return nil, fmt.Errorf("Problem processing schema")
+	if schema != nil {
+		for _, p := range path {
+			schemaMap, ok := schema.(map[string]interface{})
+			if !ok {
+				return nil, fmt.Errorf("Problem processing schema")
+			}
+			schema = schemaMap[p]
 		}
-		schema = schemaMap[p]
+		return schema, nil
 	}
-	return schema, nil
+	return nil, fmt.Errorf("No schema in store at path")
 }
 
 func getObjectType(names []string, compiledSchema *gojsonschema.Schema) (types.Type, error) {
