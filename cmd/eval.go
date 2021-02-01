@@ -11,6 +11,7 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 
@@ -419,20 +420,15 @@ func setupEval(args []string, params evalCommandParams) (*evalContext, error) {
 		regoArgs = append(regoArgs, rego.ParsedInput(inputValue))
 	}
 
-	schemaBytes, err := readSchemaBytes(params)
+	/*
+		-s {file} (one schema file) --> input: file
+		-s {directory} (one schema directory with/without an input.json plus other data schema files) --> input: file, dataPath1: file, dataPath2: file, dataPath3: file
+	*/
+	schemaSet, err := readSchemaBytes(params)
 	if err != nil {
 		return nil, err
 	}
-
-	if schemaBytes != nil {
-		var schema interface{}
-		err := util.Unmarshal(schemaBytes, &schema)
-		if err != nil {
-			return nil, fmt.Errorf("unable to parse schema: %s", err.Error())
-		}
-		schemaSet := &ast.SchemaSet{ByPath: map[string]interface{}{"input": schema}}
-		regoArgs = append(regoArgs, rego.Schemas(schemaSet))
-	}
+	regoArgs = append(regoArgs, rego.Schemas(schemaSet))
 
 	var tracer *topdown.BufferTracer
 
@@ -527,13 +523,57 @@ func readInputBytes(params evalCommandParams) ([]byte, error) {
 	return nil, nil
 }
 
-func readSchemaBytes(params evalCommandParams) ([]byte, error) {
+func readSchemaBytes(params evalCommandParams) (*ast.SchemaSet, error) {
 	if params.schemaPath != "" {
+		var schema interface{}
 		path, err := fileurl.Clean(params.schemaPath)
 		if err != nil {
 			return nil, err
 		}
-		return ioutil.ReadFile(path)
+
+		if info, err := os.Stat(path); err == nil && !info.IsDir() { //contains a single input schema file
+			schemaBytes, err := ioutil.ReadFile(path)
+			if err != nil {
+				return nil, err
+			}
+
+			err = util.Unmarshal(schemaBytes, &schema)
+			if err != nil {
+				return nil, fmt.Errorf("unable to unmarshal schema: %s", err.Error())
+			}
+
+			return &ast.SchemaSet{ByPath: map[string]interface{}{"input": schema}}, nil
+		} else { //contains a directory of data file(s) and a single input file (in input/input.json or input.json)
+			schemaSet := make(map[string]interface{})
+			err := filepath.Walk(path,
+				func(path string, info os.FileInfo, err error) error {
+					if err != nil {
+						return fmt.Errorf("error in walking file path: %s", err.Error())
+					}
+
+					if !info.IsDir() { //ignore (sub)directories
+						schemaBytes, err := ioutil.ReadFile(path)
+						if err != nil {
+							return err
+						}
+						err = util.Unmarshal(schemaBytes, &schema)
+						if err != nil {
+							return fmt.Errorf("unable to unmarshal schema: %s", err.Error())
+						}
+
+						if info.Name() == "input.json" {
+							schemaSet["input"] = schema
+						} else {
+							schemaSet[path] = schema
+						}
+					}
+					return nil
+				})
+			if err != nil {
+				return nil, err
+			}
+			return &ast.SchemaSet{ByPath: schemaSet}, nil
+		}
 	}
 	return nil, nil
 }
