@@ -556,6 +556,8 @@ func readSchemaBytes(params evalCommandParams) (*ast.SchemaSet, error) {
 			return &ast.SchemaSet{ByPath: map[string]interface{}{"input": schema}}, nil
 		} else { //contains a directory of data file(s) and a single input file (in input/input.json or input.json)
 			schemaSet := make(map[string]interface{})
+			parentDir := filepath.Base(path)
+
 			err := filepath.Walk(path,
 				func(path string, info os.FileInfo, err error) error {
 					if err != nil {
@@ -575,7 +577,9 @@ func readSchemaBytes(params evalCommandParams) (*ast.SchemaSet, error) {
 						if info.Name() == "input.json" {
 							schemaSet["input"] = schema
 						} else {
-							schemaSet[path] = schema
+							subDir := filepath.Base(filepath.Dir(path))
+							fileNameNoExt := strings.TrimSuffix(info.Name(), filepath.Ext(info.Name()))
+							schemaSet[filepath.Join(parentDir, subDir, fileNameNoExt)] = schema
 						}
 					}
 					return nil
