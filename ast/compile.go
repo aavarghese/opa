@@ -962,7 +962,7 @@ func (c *Compiler) setInputType() {
 func (c *Compiler) checkTypes() {
 	// Recursion is caught in earlier step, so this cannot fail.
 	sorted, _ := c.Graph.Sort()
-	checker := newTypeChecker().WithVarRewriter(rewriteVarsInRef(c.RewrittenVars)).WithSchemas(c.schemaSet)
+	checker := newTypeChecker().WithVarRewriter(rewriteVarsInRef(c.RewrittenVars))
 
 	c.setInputType()
 

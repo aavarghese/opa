@@ -484,10 +484,8 @@ func writeModules(ctx context.Context, store storage.Store, txn storage.Transact
 		}
 	}
 
-	schemas, err := store.Read(ctx, txn, storage.MustParsePath("/schemas")) //MV
-	if err == nil {
-		schemaSet := &ast.SchemaSet{ByPath: map[string]interface{}{"data": schemas}}
-		compiler = compiler.WithSchemas(schemaSet)
+	if compiler.Compile(modules); compiler.Failed() {
+		return compiler.Errors
 	}
 	for bundleName, b := range bundles {
 		for _, mf := range b.Modules {
