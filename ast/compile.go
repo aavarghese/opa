@@ -103,7 +103,7 @@ type Compiler struct {
 	unsafeBuiltinsMap    map[string]struct{}           // user-supplied set of unsafe built-ins functions to block (deprecated: use capabilities)
 	comprehensionIndices map[*Term]*ComprehensionIndex // comprehension key index
 	initialized          bool                          // indicates if init() has been called
-	schemaSet            *SchemaSet
+	schemaSet            *SchemaSet                    // user-supplied schemas for input and data documents
 }
 
 // SchemaSet holds a map from a path to a schema
@@ -965,6 +965,10 @@ func (c *Compiler) checkTypes() {
 	checker := newTypeChecker().WithVarRewriter(rewriteVarsInRef(c.RewrittenVars))
 
 	c.setInputType()
+
+	if c.schemaSet != nil {
+		checker.WithSchemas(c.schemaSet)
+	}
 
 	env, errs := checker.CheckTypes(c.TypeEnv, sorted)
 	for _, err := range errs {

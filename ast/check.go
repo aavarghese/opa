@@ -28,7 +28,7 @@ type typeChecker struct {
 	errs         Errors
 	exprCheckers map[string]exprChecker
 	varRewriter  rewriteVars
-	schemaStore  interface{}
+	schemaSet    *SchemaSet
 }
 
 // newTypeChecker returns a new typeChecker object that has no errors.
@@ -45,8 +45,8 @@ func (tc *typeChecker) WithVarRewriter(f rewriteVars) *typeChecker {
 	return tc
 }
 
-func (tc *typeChecker) WithSchemas(schemas interface{}) *typeChecker {
-	tc.schemaStore = schemas
+func (tc *typeChecker) WithSchemas(schemas *SchemaSet) *typeChecker {
+	tc.schemaSet = schemas
 	return tc
 }
 
@@ -153,22 +153,6 @@ func (tc *typeChecker) checkLanguageBuiltins(env *TypeEnv, builtins map[string]*
 	return env
 }
 
-func (tc *typeChecker) getSchema(schemaPath string) (interface{}, error) {
-	path := strings.Split(schemaPath, ".")
-	schema := tc.schemaStore
-	if schema != nil {
-		for _, p := range path {
-			schemaMap, ok := schema.(map[string]interface{})
-			if !ok {
-				return nil, fmt.Errorf("Problem processing schema")
-			}
-			schema = schemaMap[p]
-		}
-		return schema, nil
-	}
-	return nil, fmt.Errorf("No schema in store at path")
-}
-
 func getObjectType(names []string, compiledSchema *gojsonschema.Schema) (types.Type, error) {
 	if len(names) <= 1 {
 		staticProps, err := parseSchema(compiledSchema.RootSchema)
@@ -225,11 +209,11 @@ func (tc *typeChecker) checkRule(env *TypeEnv, rule *Rule) {
 	if rule.Annotation != nil {
 		errors := []*Error{}
 		for _, annot := range rule.Annotation {
-			schema, err := tc.getSchema(annot.Schema)
-			if err != nil {
-				errors = append(errors, NewError(TypeErr, rule.Location, err.Error()))
+			schema := tc.schemaSet.ByPath[annot.Schema]
+			if schema == nil {
+				errors = append(errors, NewError(TypeErr, rule.Location, "Schema does not exist for given path in annotation: %s", annot.Schema))
 			} else {
-				staticProps, err := setTypesWithSchema(schema)
+				newType, err := setTypesWithSchema(schema)
 				if err != nil {
 					errors = append(errors, NewError(TypeErr, rule.Location, err.Error()))
 				} else {
@@ -237,13 +221,13 @@ func (tc *typeChecker) checkRule(env *TypeEnv, rule *Rule) {
 					prefixName, t := getPrefixToOverride(annot.Name, env)
 
 					if t == nil || prefixName == annot.Name {
-						env.tree.Put(ref, staticProps)
+						env.tree.Put(ref, newType)
 						defer env.tree.DeleteKey(ref)
 					} else {
 						refPrefix := MustParseRef(prefixName)
 						name := strings.TrimPrefix(annot.Name, prefixName+".")
 						names := strings.Split(name, ".")
-						newType := override(names, t, staticProps)
+						newType := override(names, t, newType)
 						env.tree.Put(refPrefix, newType)
 						defer env.tree.Put(refPrefix, t)
 					}
@@ -251,6 +235,7 @@ func (tc *typeChecker) checkRule(env *TypeEnv, rule *Rule) {
 				}
 			}
 		}
+		tc.err(errors)
 	}
 
 	cpy, err := tc.CheckBody(env, rule.Body)
