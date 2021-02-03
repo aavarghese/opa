@@ -9,7 +9,6 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/open-policy-agent/opa/internal/gojsonschema"
 	"github.com/open-policy-agent/opa/types"
 	"github.com/open-policy-agent/opa/util"
 )
@@ -151,25 +150,6 @@ func (tc *typeChecker) checkLanguageBuiltins(env *TypeEnv, builtins map[string]*
 		env.tree.Put(bi.Ref(), bi.Decl)
 	}
 	return env
-}
-
-func getObjectType(names []string, compiledSchema *gojsonschema.Schema) (types.Type, error) {
-	if len(names) <= 1 {
-		staticProps, err := parseSchema(compiledSchema.RootSchema)
-		if err != nil {
-			return nil, err
-		}
-		return staticProps, nil
-	}
-	objectType, err := getObjectType(names[1:], compiledSchema)
-	if err != nil {
-		return nil, err
-	}
-	props := []*types.StaticProperty{}
-	props = append(props, types.NewStaticProperty(names[1], objectType))
-
-	return types.NewObject(props, nil), nil
-
 }
 
 func getPrefixToOverride(name string, env *TypeEnv) (string, types.Type) {

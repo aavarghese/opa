@@ -1216,3 +1216,192 @@ func newTestEnv(rs []string) *TypeEnv {
 
 	return env
 }
+
+const inputSchema = `{
+	"$schema": "http://json-schema.org/draft-07/schema",
+    "$id": "http://example.com/example.json",
+    "type": "object",
+    "title": "The root schema",
+    "description": "The root schema comprises the entire JSON document.",
+    "required": [
+        "servers"
+    ],
+    "properties": {
+        "servers": {
+            "$id": "#/properties/servers",
+            "type": "array",
+            "title": "The servers schema",
+            "description": "An explanation about the purpose of this instance.",
+            "additionalItems": false,
+            "items": {
+                "$id": "#/properties/servers/items",
+                "type": "object",
+                "title": "The items schema",
+                "description": "An explanation about the purpose of this instance.",
+                "required": [
+                    "id",
+                    "protocols",
+                    "ports"
+                ],
+                "properties": {
+                    "id": {
+                        "$id": "#/properties/servers/items/properties/id",
+                        "type": "string",
+                        "title": "The id schema",
+                        "description": "An explanation about the purpose of this instance."
+                    },
+                    "protocols": {
+                        "$id": "#/properties/servers/items/properties/protocols",
+                        "type": "array",
+                        "title": "The protocols schema",
+                        "description": "An explanation about the purpose of this instance.",
+                        "additionalItems": false,
+                        "items": {
+                            "$id": "#/properties/servers/items/properties/protocols/items",
+                            "type": "string",
+                            "title": "The items schema",
+                            "description": "An explanation about the purpose of this instance."
+                        }
+                    },
+                    "ports": {
+                        "$id": "#/properties/servers/items/properties/ports",
+                        "type": "array",
+                        "title": "The ports schema",
+                        "description": "An explanation about the purpose of this instance.",
+                        "additionalItems": false,
+                        "items": {
+                            "$id": "#/properties/servers/items/properties/ports/items",
+                            "type": "string",
+                            "title": "The items schema",
+                            "description": "An explanation about the purpose of this instance."
+                        }
+                    }
+                },
+                "additionalProperties": false
+            }
+        }
+    },
+    "additionalProperties": false
+}`
+
+const dataSchema = `
+{
+    "description": "Pod is a collection of containers that can run on a host. This resource is created by clients and scheduled onto hosts.",
+    "properties": {
+      "apiVersion": {
+        "description": "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#resources",
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "kind": {
+        "description": "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#types-kinds",
+        "type": [
+          "string",
+          "null"
+        ],
+        "enum": [
+          "Pod"
+        ]
+      },
+      "metadata": {
+        "$ref": "https://kubernetesjsonschema.dev/v1.14.0/_definitions.json#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.ObjectMeta",
+        "description": "Standard object's metadata. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#metadata"
+      },
+      "spec": {
+        "$ref": "https://kubernetesjsonschema.dev/v1.14.0/_definitions.json#/definitions/io.k8s.api.core.v1.PodSpec",
+        "description": "Specification of the desired behavior of the pod. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#spec-and-status"
+      },
+      "status": {
+        "$ref": "https://kubernetesjsonschema.dev/v1.14.0/_definitions.json#/definitions/io.k8s.api.core.v1.PodStatus",
+        "description": "Most recently observed status of the pod. This data may not be up to date. Populated by the system. Read-only. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#spec-and-status"
+      }
+    },
+    "type": "object",
+    "x-kubernetes-group-version-kind": [
+      {
+        "group": "",
+        "kind": "Pod",
+        "version": "v1"
+      }
+    ],
+    "$schema": "http://json-schema.org/schema#"
+  }
+`
+
+func TestCheckAnnotationRules(t *testing.T) {
+
+	// Rules must have refs resolved, safe ordering, etc. Each pair is a
+	// (package path, rule) tuple. The test constructs the Rule objects to
+	// run the inference on from these inputs.
+	ruleset := [][2]string{
+		{`a`, `violations[server] { server = servers[i]; server.protocols[j] = "http"}`},
+	}
+
+	var schema interface{}
+	_ = util.Unmarshal([]byte(inputSchema), &schema)
+
+	var podSchema interface{}
+	_ = util.Unmarshal([]byte(dataSchema), &podSchema)
+	
+	tests := []struct {
+		note     string
+		rules    [][2]string
+		ref      string
+		expected types.Type
+	}{
+		{"trivial", ruleset, `data.a.trivial`, types.B},
+	}
+
+	for _, tc := range tests {
+		test.Subtest(t, tc.note, func(t *testing.T) {
+			var elems []util.T
+
+			// Convert test rules into rule slice for call.
+			for i := range tc.rules {
+				pkg := MustParsePackage(`package ` + tc.rules[i][0])
+				rule := MustParseRule(tc.rules[i][1])
+				module := &Module{
+					Package: pkg,
+					Rules:   []*Rule{rule},
+				}
+				rule.Module = module
+				sa := []*SchemaAnnotation{}
+				sa = append(sa, &SchemaAnnotation{Name: "input", Schema: "input"})
+				sa = append(sa, &SchemaAnnotation{Name: "podSchema", Schema: "podSchema"})
+				rule.Annotation = sa
+				elems = append(elems, rule)
+				for next := rule.Else; next != nil; next = next.Else {
+					next.Module = module
+					elems = append(elems, next)
+				}
+			}
+
+			ref := MustParseRef(tc.ref)
+			checker := newTypeChecker()
+
+			schemaSet := &SchemaSet{ByPath: map[string]interface{}{"input": schema, "podSchema": podSchema}}
+			checker.WithSchemas(schemaSet)
+			env, err := checker.CheckTypes(nil, elems)
+
+			if err != nil {
+				t.Fatalf("Unexpected error %v:", err)
+			}
+
+			result := env.Get(ref)
+			if tc.expected == nil {
+				if result != nil {
+					t.Errorf("Expected %v type to be unset but got: %v", ref, result)
+				}
+			} else {
+				if result == nil {
+					t.Errorf("Expected to infer %v => %v but got nil", ref, tc.expected)
+				} else if types.Compare(tc.expected, result) != 0 {
+					t.Errorf("Expected to infer %v => %v but got %v", ref, tc.expected, result)
+				}
+			}
+		})
+	}
+
+}
