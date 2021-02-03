@@ -6,11 +6,11 @@ weight: 2
 
 ## Using schemas to enhance the Rego type checker
 
-You can provide an input schema to `opa eval` to improve static type checking and get more precise error reports as you develop Rego code.
-The `-s` flag can be used to upload a single schema for the input document in JSON Schema format.
+You can provide an input schema and/or data schema(s) to `opa eval` to improve static type checking and get more precise error reports as you develop Rego code.
+The `-s` flag can be used to upload schemas for the input document and/or for the data documents in JSON Schema format.
 
 ```
--s, --schema string set schema file path
+-s, --schema string set schema file path or directory path
 ```
 
 Example:
@@ -108,6 +108,45 @@ Consider the following input document:
 
   This indicates the error to the Rego developer right away, without having the need to observe the results of runs on actual data, thereby improving productivity.
 
+## Using annotations on Rules to further enhance the Rego type checker
+
+[Under Construction]
+
+A rule can be annotated with a comment of the form:
+
+#@rulesSchema=<expression>:data.schemas.<path-to-schema>,...,<expression>:data.schemas.<path-to-schema>
+An expression is of the form <input|data>.field1. ... .fieldN
+
+This annotation associates a schema (uploaded via OPA's `opa eval --schema`) with the corresponding expression. So it can be used to give a schema to the input or any data document. The type checker derives a Rego Object type for the schema and an appropriate entry is added to the type environment. This entry is removed upon exit from the rule.
+
+Annotations allow overriding when a prefix of an expression has a type in the type environment (see example below).
+
+Notice that currently the annotation needs to appear on the line immediately preceding the rule definition.
+
+Examples:
+
+Consider a directory named `schemas` with the following structure, uploaded via `opa eval --schema /Users/ansuvarghese/opa-schema-examples/schemas`
+
+```
+schemas
+---> input.json
+---> kubernetes
+-------> pod-schema.json
+```
+
+```
+package kubernetes.admission                                                
+
+#@rulesSchema=input.request.object:schemas.kubernetes.pod-schema
+deny[msg] {                                                              
+  input.request.kind.kind == "Pod"                                          
+  image := input.request.object.spec.containers[_].image                    
+  not startswith(image, "hooli.com/")                                       
+  msg := sprintf("image '%v' comes from untrusted registry", [image])       
+}
+```
+
+The above rule annotation indicates that the input has a type derived from the input schema (`input.json`) [does not need to be specified in the annotation since it is implied], and that in addition, input.request.object has a type which is derived from the pod schema. The second annotation overrides the type in the first annotation for the path input.request.object. Notice that the order of annotations matter for overriding to work correctly.
 
 ## References
 
