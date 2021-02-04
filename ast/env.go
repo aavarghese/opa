@@ -11,8 +11,9 @@ import (
 
 // TypeEnv contains type info for static analysis such as type checking.
 type TypeEnv struct {
-	tree *typeTreeNode
-	next *TypeEnv
+	tree      *typeTreeNode
+	next      *TypeEnv
+	schemaSet *SchemaSet
 }
 
 // NewTypeEnv returns an empty TypeEnv.
@@ -20,6 +21,12 @@ func NewTypeEnv() *TypeEnv {
 	return &TypeEnv{
 		tree: newTypeTree(),
 	}
+}
+
+// WithSchemas sets the user-provider schemas
+func (env *TypeEnv) WithSchemas(schemas *SchemaSet) *TypeEnv {
+	env.schemaSet = schemas
+	return env
 }
 
 // Get returns the type of x.

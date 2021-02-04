@@ -1344,7 +1344,7 @@ func TestCheckAnnotationRules(t *testing.T) {
 
 	var podSchema interface{}
 	_ = util.Unmarshal([]byte(dataSchema), &podSchema)
-	
+
 	tests := []struct {
 		note     string
 		rules    [][2]string
@@ -1382,8 +1382,7 @@ func TestCheckAnnotationRules(t *testing.T) {
 			checker := newTypeChecker()
 
 			schemaSet := &SchemaSet{ByPath: map[string]interface{}{"input": schema, "podSchema": podSchema}}
-			checker.WithSchemas(schemaSet)
-			env, err := checker.CheckTypes(nil, elems)
+			env, err := checker.CheckTypes(NewTypeEnv().WithSchemas(schemaSet), elems)
 
 			if err != nil {
 				t.Fatalf("Unexpected error %v:", err)
