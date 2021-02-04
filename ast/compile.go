@@ -623,7 +623,6 @@ func (c *Compiler) RuleIndex(path Ref) RuleIndex {
 // PassesTypeCheck determines whether the given body passes type checking
 func (c *Compiler) PassesTypeCheck(body Body) bool {
 	checker := newTypeChecker()
-	c.setSchemas()
 	env := c.TypeEnv
 	_, errs := checker.CheckBody(env, body)
 	return len(errs) == 0
@@ -943,34 +942,12 @@ func setTypesWithSchema(schema interface{}) (types.Type, error) {
 	return newtype, nil
 }
 
-func (c *Compiler) setSchemas() {
-	if c.schemaSet != nil {
-		if c.schemaSet.ByPath != nil {
-			// First, set the schemaSet in the type environment
-			c.TypeEnv.WithSchemas(c.schemaSet)
-
-			// Second, set the schema for the input globally
-			schema := c.schemaSet.ByPath["input"]
-			if schema != nil {
-				newtype, err := setTypesWithSchema(schema)
-				if err != nil {
-					c.err(NewError(TypeErr, nil, err.Error()))
-				}
-				c.TypeEnv.tree.PutOne(VarTerm("input").Value, newtype)
-			}
-		}
-	}
-}
-
 // checkTypes runs the type checker on all rules. The type checker builds a
 // TypeEnv that is stored on the compiler.
 func (c *Compiler) checkTypes() {
 	// Recursion is caught in earlier step, so this cannot fail.
 	sorted, _ := c.Graph.Sort()
 	checker := newTypeChecker().WithVarRewriter(rewriteVarsInRef(c.RewrittenVars))
-
-	c.setSchemas()
-
 	env, errs := checker.CheckTypes(c.TypeEnv, sorted)
 	for _, err := range errs {
 		c.err(err)
@@ -1047,7 +1024,28 @@ func (c *Compiler) init() {
 
 	tc := newTypeChecker()
 	c.TypeEnv = tc.checkLanguageBuiltins(nil, c.builtins)
+	c.setSchemas()
+
 	c.initialized = true
+}
+
+func (c *Compiler) setSchemas() {
+	if c.schemaSet != nil {
+		if c.schemaSet.ByPath != nil {
+			// First, set the schemaSet in the type environment
+			c.TypeEnv.WithSchemas(c.schemaSet)
+
+			// Second, set the schema for the input globally
+			schema := c.schemaSet.ByPath["input"]
+			if schema != nil {
+				newtype, err := setTypesWithSchema(schema)
+				if err != nil {
+					c.err(NewError(TypeErr, nil, err.Error()))
+				}
+				c.TypeEnv.tree.PutOne(VarTerm("input").Value, newtype)
+			}
+		}
+	}
 }
 
 func (c *Compiler) err(err *Error) {
@@ -1656,9 +1654,6 @@ func (qc *queryCompiler) checkSafety(_ *QueryContext, body Body) (Body, error) {
 func (qc *queryCompiler) checkTypes(qctx *QueryContext, body Body) (Body, error) {
 	var errs Errors
 	checker := newTypeChecker().WithVarRewriter(rewriteVarsInRef(qc.rewritten, qc.compiler.RewrittenVars))
-
-	qc.compiler.setSchemas()
-
 	qc.typeEnv, errs = checker.CheckBody(qc.compiler.TypeEnv, body)
 	if len(errs) > 0 {
 		return nil, errs
