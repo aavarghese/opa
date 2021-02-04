@@ -560,7 +560,7 @@ func readSchemaBytes(params evalCommandParams) (*ast.SchemaSet, error) {
 		schemaSet := make(map[string]interface{})
 		parentDir := filepath.Base(path)
 
-		err := filepath.Walk(path,
+		err = filepath.Walk(path,
 			func(path string, info os.FileInfo, err error) error {
 				if err != nil {
 					return fmt.Errorf("error in walking file path: %s", err.Error())
