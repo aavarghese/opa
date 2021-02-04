@@ -27,7 +27,6 @@ type typeChecker struct {
 	errs         Errors
 	exprCheckers map[string]exprChecker
 	varRewriter  rewriteVars
-	schemaSet    *SchemaSet
 }
 
 // newTypeChecker returns a new typeChecker object that has no errors.
@@ -41,11 +40,6 @@ func newTypeChecker() *typeChecker {
 
 func (tc *typeChecker) WithVarRewriter(f rewriteVars) *typeChecker {
 	tc.varRewriter = f
-	return tc
-}
-
-func (tc *typeChecker) WithSchemas(schemas *SchemaSet) *typeChecker {
-	tc.schemaSet = schemas
 	return tc
 }
 
@@ -185,11 +179,13 @@ func override(names []string, t types.Type, o types.Type) types.Type {
 
 func (tc *typeChecker) checkRule(env *TypeEnv, rule *Rule) {
 	// If rule has a schema annotation, then process the schema and add it to TypeEnv
-	// Annotations are of the form: #@rulesSchema=input:data.schemas.input-schema and must immediately precede the rule definition
+	// Annotations must immediately precede the rule definition
+	// They are of the form: #@rulesSchema=<expr>:<schema-key>
+
 	if rule.Annotation != nil {
 		errors := []*Error{}
 		for _, annot := range rule.Annotation {
-			schema := tc.schemaSet.ByPath[annot.Schema]
+			schema := env.schemaSet.ByPath[annot.Schema]
 			if schema == nil {
 				errors = append(errors, NewError(TypeErr, rule.Location, "Schema does not exist for given path in annotation: %s", annot.Schema))
 			} else {
