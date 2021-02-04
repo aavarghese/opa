@@ -554,41 +554,43 @@ func readSchemaBytes(params evalCommandParams) (*ast.SchemaSet, error) {
 			}
 
 			return &ast.SchemaSet{ByPath: map[string]interface{}{"input": schema}}, nil
-		} else { //contains a directory of data file(s) and a single input file (in input/input.json or input.json)
-			schemaSet := make(map[string]interface{})
-			parentDir := filepath.Base(path)
-
-			err := filepath.Walk(path,
-				func(path string, info os.FileInfo, err error) error {
-					if err != nil {
-						return fmt.Errorf("error in walking file path: %s", err.Error())
-					}
-
-					if !info.IsDir() { //ignore (sub)directories
-						schemaBytes, err := ioutil.ReadFile(path)
-						if err != nil {
-							return err
-						}
-						err = util.Unmarshal(schemaBytes, &schema)
-						if err != nil {
-							return fmt.Errorf("unable to unmarshal schema: %s", err.Error())
-						}
-
-						if info.Name() == "input.json" {
-							schemaSet["input"] = schema
-						} else {
-							subDir := filepath.Base(filepath.Dir(path))
-							fileNameNoExt := strings.TrimSuffix(info.Name(), filepath.Ext(info.Name()))
-							schemaSet[filepath.Join(parentDir, subDir, fileNameNoExt)] = schema
-						}
-					}
-					return nil
-				})
-			if err != nil {
-				return nil, err
-			}
-			return &ast.SchemaSet{ByPath: schemaSet}, nil
 		}
+
+		//contains a directory of data file(s) and a single input file (in input/input.json or input.json)
+		schemaSet := make(map[string]interface{})
+		parentDir := filepath.Base(path)
+
+		err := filepath.Walk(path,
+			func(path string, info os.FileInfo, err error) error {
+				if err != nil {
+					return fmt.Errorf("error in walking file path: %s", err.Error())
+				}
+
+				if !info.IsDir() { //ignore (sub)directories
+					schemaBytes, err := ioutil.ReadFile(path)
+					if err != nil {
+						return err
+					}
+					err = util.Unmarshal(schemaBytes, &schema)
+					if err != nil {
+						return fmt.Errorf("unable to unmarshal schema: %s", err.Error())
+					}
+
+					if info.Name() == "input.json" {
+						schemaSet["input"] = schema
+					} else {
+						subDir := filepath.Base(filepath.Dir(path))
+						fileNameNoExt := strings.TrimSuffix(info.Name(), filepath.Ext(info.Name()))
+						schemaSet[filepath.Join(parentDir, subDir, fileNameNoExt)] = schema
+					}
+				}
+				return nil
+			})
+		if err != nil {
+			return nil, err
+		}
+		return &ast.SchemaSet{ByPath: schemaSet}, nil
+
 	}
 	return nil, nil
 }
