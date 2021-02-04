@@ -428,8 +428,8 @@ func setupEval(args []string, params evalCommandParams) (*evalContext, error) {
 	}
 
 	/*
-		-s {file} (one schema file) --> input: file
-		-s {directory} (one schema directory with/without an input.json plus other data schema files) --> input: file, dataPath1: file, dataPath2: file, dataPath3: file
+		-s {file} (one input schema file)
+		-s {directory} (one schema directory with an input.json schema file plus other optional data schema files)
 	*/
 	schemaSet, err := readSchemaBytes(params)
 	if err != nil {
@@ -556,7 +556,7 @@ func readSchemaBytes(params evalCommandParams) (*ast.SchemaSet, error) {
 			return &ast.SchemaSet{ByPath: map[string]interface{}{"input": schema}}, nil
 		}
 
-		//contains a directory of data file(s) and a single input file (in input/input.json or input.json)
+		//contains a directory of data file(s) and an input.json file
 		schemaSet := make(map[string]interface{})
 		parentDir := filepath.Base(path)
 
@@ -566,7 +566,7 @@ func readSchemaBytes(params evalCommandParams) (*ast.SchemaSet, error) {
 					return fmt.Errorf("error in walking file path: %s", err.Error())
 				}
 
-				if !info.IsDir() { //ignore (sub)directories
+				if !info.IsDir() { //adding only schema "Files" to the set
 					schemaBytes, err := ioutil.ReadFile(path)
 					if err != nil {
 						return err
@@ -579,9 +579,10 @@ func readSchemaBytes(params evalCommandParams) (*ast.SchemaSet, error) {
 					if info.Name() == "input.json" {
 						schemaSet["input"] = schema
 					} else {
-						subDir := filepath.Base(filepath.Dir(path))
+						subDirs := strings.SplitAfterN(filepath.Dir(path), parentDir, 2)[1] //get rest of the path after main schema directory
 						fileNameNoExt := strings.TrimSuffix(info.Name(), filepath.Ext(info.Name()))
-						schemaSet[filepath.Join(parentDir, subDir, fileNameNoExt)] = schema
+						relPath := strings.ReplaceAll(filepath.Join(parentDir, subDirs, fileNameNoExt), "/", ".")
+						schemaSet[relPath] = schema
 					}
 				}
 				return nil
