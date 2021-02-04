@@ -177,7 +177,7 @@ func override(names []string, t types.Type, o types.Type) types.Type {
 	return types.NewObject(newStaticProps, nil)
 }
 
-func (tc *typeChecker) checkRule(env *TypeEnv, rule *Rule) {
+func (tc *typeChecker) processAnnotation(env *TypeEnv, rule *Rule) {
 	// If rule has a schema annotation, then process the schema and add it to TypeEnv
 	// Annotations must immediately precede the rule definition
 	// They are of the form: #@rulesSchema=<expr>:<schema-key>
@@ -185,34 +185,42 @@ func (tc *typeChecker) checkRule(env *TypeEnv, rule *Rule) {
 	if rule.Annotation != nil {
 		errors := []*Error{}
 		for _, annot := range rule.Annotation {
+			if env.schemaSet == nil || env.schemaSet.ByPath == nil {
+				errors = append(errors, NewError(TypeErr, rule.Location, "Schemas need to be supplied for the annotation: %s", annot.Schema))
+				break
+			}
 			schema := env.schemaSet.ByPath[annot.Schema]
 			if schema == nil {
 				errors = append(errors, NewError(TypeErr, rule.Location, "Schema does not exist for given path in annotation: %s", annot.Schema))
+				break
+			}
+			newType, err := setTypesWithSchema(schema)
+			if err != nil {
+				errors = append(errors, NewError(TypeErr, rule.Location, err.Error()))
+				break
+			}
+			ref := MustParseRef(annot.Name)
+			prefixName, t := getPrefixToOverride(annot.Name, env)
+
+			if t == nil || prefixName == annot.Name {
+				env.tree.Put(ref, newType)
+				defer env.tree.DeleteKey(ref)
 			} else {
-				newType, err := setTypesWithSchema(schema)
-				if err != nil {
-					errors = append(errors, NewError(TypeErr, rule.Location, err.Error()))
-				} else {
-					ref := MustParseRef(annot.Name)
-					prefixName, t := getPrefixToOverride(annot.Name, env)
-
-					if t == nil || prefixName == annot.Name {
-						env.tree.Put(ref, newType)
-						defer env.tree.DeleteKey(ref)
-					} else {
-						refPrefix := MustParseRef(prefixName)
-						name := strings.TrimPrefix(annot.Name, prefixName+".")
-						names := strings.Split(name, ".")
-						newType := override(names, t, newType)
-						env.tree.Put(refPrefix, newType)
-						defer env.tree.Put(refPrefix, t)
-					}
-
-				}
+				refPrefix := MustParseRef(prefixName)
+				name := strings.TrimPrefix(annot.Name, prefixName+".")
+				names := strings.Split(name, ".")
+				newType := override(names, t, newType)
+				env.tree.Put(refPrefix, newType)
+				defer env.tree.Put(refPrefix, t)
 			}
 		}
 		tc.err(errors)
 	}
+
+}
+
+func (tc *typeChecker) checkRule(env *TypeEnv, rule *Rule) {
+	tc.processAnnotation(env, rule)
 
 	cpy, err := tc.CheckBody(env, rule.Body)
 
