@@ -1351,7 +1351,7 @@ func TestCheckAnnotationRules(t *testing.T) {
 		ref      string
 		expected types.Type
 	}{
-		{"trivial", ruleset, `data.a.trivial`, types.B},
+		{"trivial", ruleset, `data.a.trivial`, types.A},
 	}
 
 	for _, tc := range tests {
@@ -1369,7 +1369,7 @@ func TestCheckAnnotationRules(t *testing.T) {
 				rule.Module = module
 				sa := []*SchemaAnnotation{}
 				sa = append(sa, &SchemaAnnotation{Name: "input", Schema: "input"})
-				sa = append(sa, &SchemaAnnotation{Name: "podSchema", Schema: "podSchema"})
+				//sa = append(sa, &SchemaAnnotation{Name: "podSchema", Schema: "podSchema"})
 				rule.Annotation = sa
 				elems = append(elems, rule)
 				for next := rule.Else; next != nil; next = next.Else {
