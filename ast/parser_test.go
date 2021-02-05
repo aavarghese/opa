@@ -2662,51 +2662,44 @@ else = {
 	`), curElse.Head.Value.Location)
 }
 
-// func TestGetAnnotation(t *testing.T) {
-// 	const (
-// 		testModule = `
-// 	# This policy module belongs the opa.example package.
-// 	package opa.examples
+func TestGetAnnotation(t *testing.T) {
+	const (
+		testModule = `
+	# This policy module belongs the opa.example package.
+	package opa.examples
 
-// 	# Refer to data.servers as servers.
-// 	import data.servers
-// 	# Refer to the data.networks as networks.
-// 	import data.networks
-// 	# Refer to the data.ports as ports.
-// 	import data.ports
+	# Refer to data.servers as servers.
+	import data.servers
+	# Refer to the data.networks as networks.
+	import data.networks
+	# Refer to the data.ports as ports.
+	import data.ports
 
-// 	# A server exists in the violations set if...
-// 	#@rulesSchema=data.servers:data.schemas.servers
-// 	violations[server] {
-// 		# ...the server exists
-// 		server = servers[i]
-// 		# ...and any of the server’s protocols is HTTP
-// 		server.protocols[j] = "http"
-// 		# ...and the server is public.
-// 		public_servers[server]
-// 	}
+	# A server exists in the violations set if...
+	#@rulesSchema=data.servers:data.schemas.servers
+	violations[server] {
+		# ...the server exists
+		server = servers[i]
+		# ...and any of the server’s protocols is HTTP
+		server.protocols[j] = "http"
+		# ...and the server is public.
+		public_servers[server]
+	}
 
-// 	# A server exists in the public_servers set if...
-// 	public_servers[server] {
-// 		# Semicolons are optional. Can group expressions onto one line.
-// 		server = servers[i]; server.ports[j] = ports[k].id 	# ...and the server is connected to a port
-// 		ports[k].networks[l] = networks[m].id; 				# ...and the port is connected to a network
-// 		networks[m].public = true							# ...and the network is public.
-// 	}`
-// 	)
-// 	assertParseModule(t, "example module", testModule, &Module{
-// 		Package: MustParseStatement(`package opa.examples`).(*Package),
-// 		Imports: []*Import{
-// 			MustParseStatement("import data.servers").(*Import),
-// 			MustParseStatement("import data.networks").(*Import),
-// 			MustParseStatement("import data.ports").(*Import),
-// 		},
-// 		Rules: []*Rule{
-// 			MustParseStatement(`#@rulesSchema=data.servers:data.schemas.servers violations[server] { server = servers[i]; server.protocols[j] = "http"; public_servers[server] }`).(*Rule),
-// 			MustParseStatement(`public_servers[server] { server = servers[i]; server.ports[j] = ports[k].id; ports[k].networks[l] = networks[m].id; networks[m].public = true }`).(*Rule),
-// 		},
-// 	})
-// }
+	# A server exists in the public_servers set if...
+	public_servers[server] {
+		# Semicolons are optional. Can group expressions onto one line.
+		server = servers[i]; server.ports[j] = ports[k].id 	# ...and the server is connected to a port
+		ports[k].networks[l] = networks[m].id; 				# ...and the port is connected to a network
+		networks[m].public = true							# ...and the network is public.
+	}`
+	)
+
+	_, err := ParseModule("", testModule)
+	if err != nil {
+		t.Fatalf("Unexpected parse error: %v", err)
+	}
+}
 
 func assertLocationText(t *testing.T, expected string, actual *Location) {
 	t.Helper()

@@ -1218,73 +1218,67 @@ func newTestEnv(rs []string) *TypeEnv {
 }
 
 const inputSchema = `{
-	"$schema": "http://json-schema.org/draft-07/schema",
-    "$id": "http://example.com/example.json",
-    "type": "object",
-    "title": "The root schema",
-    "description": "The root schema comprises the entire JSON document.",
-    "required": [
-        "servers"
-    ],
-    "properties": {
-        "servers": {
-            "$id": "#/properties/servers",
-            "type": "array",
-            "title": "The servers schema",
-            "description": "An explanation about the purpose of this instance.",
-            "additionalItems": false,
-            "items": {
-                "$id": "#/properties/servers/items",
-                "type": "object",
-                "title": "The items schema",
-                "description": "An explanation about the purpose of this instance.",
-                "required": [
-                    "id",
-                    "protocols",
-                    "ports"
-                ],
-                "properties": {
-                    "id": {
-                        "$id": "#/properties/servers/items/properties/id",
-                        "type": "string",
-                        "title": "The id schema",
-                        "description": "An explanation about the purpose of this instance."
-                    },
-                    "protocols": {
-                        "$id": "#/properties/servers/items/properties/protocols",
-                        "type": "array",
-                        "title": "The protocols schema",
-                        "description": "An explanation about the purpose of this instance.",
-                        "additionalItems": false,
-                        "items": {
-                            "$id": "#/properties/servers/items/properties/protocols/items",
-                            "type": "string",
-                            "title": "The items schema",
-                            "description": "An explanation about the purpose of this instance."
-                        }
-                    },
-                    "ports": {
-                        "$id": "#/properties/servers/items/properties/ports",
-                        "type": "array",
-                        "title": "The ports schema",
-                        "description": "An explanation about the purpose of this instance.",
-                        "additionalItems": false,
-                        "items": {
-                            "$id": "#/properties/servers/items/properties/ports/items",
-                            "type": "string",
-                            "title": "The items schema",
-                            "description": "An explanation about the purpose of this instance."
-                        }
-                    }
-                },
-                "additionalProperties": false
-            }
-        }
-    },
-    "additionalProperties": false
+		"$schema": "http://json-schema.org/draft-07/schema",
+		"$id": "http://example.com/example.json",
+		"type": "object",
+		"description": "The root schema comprises the entire JSON document.",
+		"required": [
+			"kind",
+			"request"
+		],
+		"properties": {
+			"kind": {
+				"$id": "#/properties/kind",
+				"type": "string",
+				"description": "An explanation about the purpose of this instance."
+			},
+			"request": {
+				"$id": "#/properties/request",
+				"type": "object",
+				"description": "An explanation about the purpose of this instance.",
+				"required": [
+					"kind",
+					"object"
+				],
+				"properties": {
+					"kind": {
+						"$id": "#/properties/request/properties/kind",
+						"type": "object",
+						"description": "An explanation about the purpose of this instance.",
+						"required": [
+							"kind",
+							"version"
+						],
+						"properties": {
+							"kind": {
+								"$id": "#/properties/request/properties/kind/properties/kind",
+								"type": "string",
+								"description": "An explanation about the purpose of this instance."
+							},
+							"version": {
+								"$id": "#/properties/request/properties/kind/properties/version",
+								"type": "string",
+								"description": "An explanation about the purpose of this instance."
+							}
+						},
+						"additionalProperties": false
+					},
+					"object": {
+						"$id": "#/properties/request/properties/object",
+						"type": "object",
+						"description": "An explanation about the purpose of this instance.",
+						"properties": {
+						},
+						"additionalProperties": false
+					}
+				},
+				"additionalProperties": false
+			}
+		},
+		"additionalProperties": false
 }`
 
-const dataSchema = `
+const podRefSchema = `
 {
     "description": "Pod is a collection of containers that can run on a host. This resource is created by clients and scheduled onto hosts.",
     "properties": {
@@ -1331,76 +1325,79 @@ const dataSchema = `
 `
 
 func TestCheckAnnotationRules(t *testing.T) {
-
-	// Rules must have refs resolved, safe ordering, etc. Each pair is a
-	// (package path, rule) tuple. The test constructs the Rule objects to
-	// run the inference on from these inputs.
 	ruleset := [][2]string{
-		{`a`, `violations[server] { server = servers[i]; server.protocols[j] = "http"}`},
+		{`a`, `deny[msg] {input.request.kind.kind}`},
+		{`b`, `deny[msg] {input.request.object.spec.containers[_].image}`},
 	}
 
 	var schema interface{}
 	_ = util.Unmarshal([]byte(inputSchema), &schema)
 
 	var podSchema interface{}
-	_ = util.Unmarshal([]byte(dataSchema), &podSchema)
+	_ = util.Unmarshal([]byte(podRefSchema), &podSchema)
 
-	tests := []struct {
-		note     string
-		rules    [][2]string
-		ref      string
-		expected types.Type
-	}{
-		{"trivial", ruleset, `data.a.trivial`, types.A},
+	module := MustParseModule(`
+	package kubernetes.admission                                                
+`)
+
+	var elems []util.T
+
+	for i := range ruleset {
+		rule := MustParseRule(ruleset[i][1])
+		rule.Module = module
+		sa := []*SchemaAnnotation{}
+		sa = append(sa, &SchemaAnnotation{Name: "input", Schema: "input"})
+		sa = append(sa, &SchemaAnnotation{Name: "input.request.object", Schema: "schemas.kubernetes.pod"})
+		rule.Annotation = sa
+		elems = append(elems, rule)
+		for next := rule.Else; next != nil; next = next.Else {
+			next.Module = module
+			elems = append(elems, next)
+		}
 	}
 
-	for _, tc := range tests {
-		test.Subtest(t, tc.note, func(t *testing.T) {
-			var elems []util.T
+	schemaSet := &SchemaSet{ByPath: map[string]interface{}{"input": schema, "schemas.kubernetes.pod": podSchema}}
+	_, err := newTypeChecker().CheckTypes(NewTypeEnv().WithSchemas(schemaSet), elems)
+	if len(err) > 0 {
+		panic(err)
+	}
+}
 
-			// Convert test rules into rule slice for call.
-			for i := range tc.rules {
-				pkg := MustParsePackage(`package ` + tc.rules[i][0])
-				rule := MustParseRule(tc.rules[i][1])
-				module := &Module{
-					Package: pkg,
-					Rules:   []*Rule{rule},
-				}
-				rule.Module = module
-				sa := []*SchemaAnnotation{}
-				sa = append(sa, &SchemaAnnotation{Name: "input", Schema: "input"})
-				//sa = append(sa, &SchemaAnnotation{Name: "podSchema", Schema: "podSchema"})
-				rule.Annotation = sa
-				elems = append(elems, rule)
-				for next := rule.Else; next != nil; next = next.Else {
-					next.Module = module
-					elems = append(elems, next)
-				}
-			}
-
-			ref := MustParseRef(tc.ref)
-			checker := newTypeChecker()
-
-			schemaSet := &SchemaSet{ByPath: map[string]interface{}{"input": schema, "podSchema": podSchema}}
-			env, err := checker.CheckTypes(NewTypeEnv().WithSchemas(schemaSet), elems)
-
-			if err != nil {
-				t.Fatalf("Unexpected error %v:", err)
-			}
-
-			result := env.Get(ref)
-			if tc.expected == nil {
-				if result != nil {
-					t.Errorf("Expected %v type to be unset but got: %v", ref, result)
-				}
-			} else {
-				if result == nil {
-					t.Errorf("Expected to infer %v => %v but got nil", ref, tc.expected)
-				} else if types.Compare(tc.expected, result) != 0 {
-					t.Errorf("Expected to infer %v => %v but got %v", ref, tc.expected, result)
-				}
-			}
-		})
+func TestCheckAnnotationRulesTypeError(t *testing.T) {
+	ruleset := [][2]string{
+		{`a`, `deny[msg] {input.request.kind.kinds}`},
+		{`b`, `deny[msg] {input.request.object.spec.blah.containers[_].image}`},
 	}
 
+	var schema interface{}
+	_ = util.Unmarshal([]byte(inputSchema), &schema)
+
+	var podSchema interface{}
+	_ = util.Unmarshal([]byte(podRefSchema), &podSchema)
+
+	module := MustParseModule(`
+	package kubernetes.admission                                                
+`)
+
+	var elems []util.T
+
+	for i := range ruleset {
+		rule := MustParseRule(ruleset[i][1])
+		rule.Module = module
+		sa := []*SchemaAnnotation{}
+		sa = append(sa, &SchemaAnnotation{Name: "input", Schema: "input"})
+		sa = append(sa, &SchemaAnnotation{Name: "input.request.object", Schema: "schemas.kubernetes.pod"})
+		rule.Annotation = sa
+		elems = append(elems, rule)
+		for next := rule.Else; next != nil; next = next.Else {
+			next.Module = module
+			elems = append(elems, next)
+		}
+	}
+
+	schemaSet := &SchemaSet{ByPath: map[string]interface{}{"input": schema, "schemas.kubernetes.pod": podSchema}}
+	_, errs := newTypeChecker().CheckTypes(NewTypeEnv().WithSchemas(schemaSet), elems)
+	if len(errs) != 2 {
+		t.Fatal("expected exactly two errors but got:", len(errs))
+	}
 }
