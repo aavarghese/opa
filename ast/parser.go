@@ -81,7 +81,7 @@ const schemaAnnot = "@rulesSchema="
 
 // getAnnotation
 // MV - Returns a comment appearing at that line if any
-func (p *Parser) getAnnotation(line int) []*SchemaAnnotation {
+func (p *Parser) getAnnotation(line int) ([]*SchemaAnnotation, error) {
 	for _, comment := range p.s.comments {
 		if comment.Location.Row == line {
 			text := string(comment.Text)
@@ -94,13 +94,15 @@ func (p *Parser) getAnnotation(line int) []*SchemaAnnotation {
 					if len(segs) == 2 {
 						schema := segs[1]
 						ret = append(ret, &SchemaAnnotation{Name: segs[0], Schema: schema})
+					} else {
+						return nil, fmt.Errorf("Invalid schema annotation: %s", annot)
 					}
 				}
-				return ret
+				return ret, nil
 			}
 		}
 	}
-	return nil
+	return nil, nil
 }
 
 // Parse will read the Rego source and parse statements and
@@ -158,13 +160,15 @@ func (p *Parser) Parse() ([]Statement, []*Comment, Errors) {
 		if rules := p.parseRules(); rules != nil {
 			for i := range rules {
 				stmts = append(stmts, rules[i])
-				// MV - append annotation to rule if there is one
+				// Append schema annotation to rule if there is one
 				ruleLoc := rules[i].Location.Row
-				annot := p.getAnnotation(ruleLoc - 1)
+				annot, err := p.getAnnotation(ruleLoc - 1)
+				if err != nil {
+					p.error(rules[i].Location, err.Error())
+				}
 				if annot != nil {
 					rules[i].Annotation = annot
 				}
-				// MV
 			}
 			continue
 		} else if len(p.s.errors) > 0 {
