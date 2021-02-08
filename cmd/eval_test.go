@@ -273,10 +273,10 @@ func testEvalWithInvalidSchemaFile(t *testing.T, input string, query string, sch
 	return err
 }
 
-func testEvalWithSchemaDir(t *testing.T, input string, query string, inputSchema string) error {
+func testReadParamWithSchemaDir(t *testing.T, input string, query string, inputSchema string) error {
 	files := map[string]string{
-		"input.json":         input,
-		"schemas/input.json": inputSchema,
+		"input.json":                        input,
+		"schemas/default-input-schema.json": inputSchema,
 	}
 
 	var err error
@@ -286,39 +286,22 @@ func testEvalWithSchemaDir(t *testing.T, input string, query string, inputSchema
 		params.inputPath = filepath.Join(path, "input.json")
 		params.schemaPath = filepath.Join(path, "schemas")
 
-		var buf bytes.Buffer
-		var defined bool
-		defined, err = eval([]string{query}, params, &buf)
-		if !defined || err != nil {
+		schemaSet, err := readSchemaBytes(params)
+		if err != nil {
 			err = fmt.Errorf("Unexpected error or undefined from evaluation: %v", err)
 			return
 		}
 
-		var output presentation.Output
-
-		if err := util.NewJSONDecoder(&buf).Decode(&output); err != nil {
-			t.Fatal(err)
-		}
-
-		rs := output.Result
-		if len(rs) != 1 {
-			t.Fatalf("Expected exactly 1 result, actual: %s", rs)
-		}
-
-		r := rs[0].Expressions
-		if len(r) != 1 {
-			t.Fatalf("Expected exactly 1 expression in the result, actual: %s", r)
-		}
-
-		if string(util.MustMarshalJSON(r[0].Value)) != "true" {
-			t.Fatalf("Expected result value to be true")
+		if schemaSet == nil || schemaSet.ByPath["input"] == nil {
+			err = fmt.Errorf("Expected exactly 1 default input schema: %v", inputSchema)
+			return
 		}
 	})
 
 	return err
 }
 
-func TestEvalWithJSONSchemaFile(t *testing.T) {
+func TestEvalWithJSONSchema(t *testing.T) {
 
 	input := `{
 		"foo": "a",
@@ -404,7 +387,7 @@ func TestEvalWithJSONSchemaFile(t *testing.T) {
 		t.Fatalf("unexpected error: %s", err)
 	}
 
-	err = testEvalWithSchemaDir(t, input, query, schema)
+	err = testReadParamWithSchemaDir(t, input, query, schema)
 	if err != nil {
 		t.Fatalf("unexpected error: %s", err)
 	}
