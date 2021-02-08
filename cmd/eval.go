@@ -124,6 +124,8 @@ const (
 	defaultProfileLimit = 10
 
 	defaultPrettyLimit = 80
+
+	defaultInputSchemaFileName = "default-input-schema.json"
 )
 
 type regoError struct{}
@@ -206,9 +208,12 @@ Set the output format with the --format flag.
 Schema
 ------
 
-The -s/--schema flag provides a single JSON Schema used to validate references to the input document.
+The -s/--schema flag provides one or more JSON Schemas used to validate references to the input and/or data documents.
+Can load a single input JSON schema file or all the schema files under the specified directory. 
+When a directory is passed, schema file for input must be named 'default-input-schema.json'.
 
-	$ opa eval --data policy.rego --input input.json --schema input-schema.json
+	$ opa eval --data policy.rego --input input.json --schema schema.json
+	$ opa eval --data policy.rego --input input.json --schema schemas/
 `,
 
 		PreRunE: func(cmd *cobra.Command, args []string) error {
@@ -429,7 +434,7 @@ func setupEval(args []string, params evalCommandParams) (*evalContext, error) {
 
 	/*
 		-s {file} (one input schema file)
-		-s {directory} (one schema directory with an input.json schema file plus other optional data schema files)
+		-s {directory} (one schema directory with an default-input-schema.json schema file plus other optional input and data schema files)
 	*/
 	schemaSet, err := readSchemaBytes(params)
 	if err != nil {
@@ -556,7 +561,7 @@ func readSchemaBytes(params evalCommandParams) (*ast.SchemaSet, error) {
 			return &ast.SchemaSet{ByPath: map[string]interface{}{"input": schema}}, nil
 		}
 
-		//contains a directory of data file(s) and an input.json file
+		//contains a directory of input and data json schema files
 		schemaSet := make(map[string]interface{})
 		parentDir := filepath.Base(path)
 
@@ -576,7 +581,7 @@ func readSchemaBytes(params evalCommandParams) (*ast.SchemaSet, error) {
 						return fmt.Errorf("unable to unmarshal schema: %s", err.Error())
 					}
 
-					if info.Name() == "input.json" {
+					if info.Name() == defaultInputSchemaFileName {
 						schemaSet["input"] = schema
 					} else {
 						subDirs := strings.SplitAfterN(filepath.Dir(path), parentDir, 2)[1] //get rest of the path after main schema directory

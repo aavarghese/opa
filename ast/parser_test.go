@@ -2665,39 +2665,40 @@ else = {
 func TestGetAnnotation(t *testing.T) {
 	const (
 		testModule = `
-	# This policy module belongs the opa.example package.
 	package opa.examples
 
-	# Refer to data.servers as servers.
 	import data.servers
-	# Refer to the data.networks as networks.
 	import data.networks
-	# Refer to the data.ports as ports.
 	import data.ports
 
-	# A server exists in the violations set if...
-	#@rulesSchema=data.servers:data.schemas.servers
-	violations[server] {
-		# ...the server exists
-		server = servers[i]
-		# ...and any of the server’s protocols is HTTP
-		server.protocols[j] = "http"
-		# ...and the server is public.
-		public_servers[server]
-	}
-
-	# A server exists in the public_servers set if...
+	#Schema annotation for this rule referencing three schemas
+	#@rulesSchema=data.servers:schemas.servers,data.networks:schemas.networks,data.ports:schemas.ports
 	public_servers[server] {
-		# Semicolons are optional. Can group expressions onto one line.
-		server = servers[i]; server.ports[j] = ports[k].id 	# ...and the server is connected to a port
-		ports[k].networks[l] = networks[m].id; 				# ...and the port is connected to a network
-		networks[m].public = true							# ...and the network is public.
+		server = servers[i]; server.ports[j] = ports[k].id
+		ports[k].networks[l] = networks[m].id;
+		networks[m].public = true
 	}`
 	)
 
-	_, err := ParseModule("", testModule)
+	mod, err := ParseModule("test.rego", testModule)
 	if err != nil {
-		t.Fatalf("Unexpected parse error: %v", err)
+		t.Fatalf("Unexpected parse error when getting annotations: %v", err)
+	}
+
+	if len(mod.Comments) != 2 { //description + annotation
+		t.Errorf("Expected %v comments but got %v", 2, len(mod.Comments))
+	}
+
+	annotations := mod.Rules[0].Annotation
+	if len(annotations) != 3 {
+		t.Errorf("Expected %v annotations but got %v", 3, len(annotations))
+	}
+
+	expected := []*SchemaAnnotation{}
+	expected = append(expected, &SchemaAnnotation{Name: "data.servers", Schema: "schemas.servers"}, &SchemaAnnotation{Name: "data.networks", Schema: "schemas.networks"}, &SchemaAnnotation{Name: "data.ports", Schema: "schemas.ports"})
+
+	if !reflect.DeepEqual(expected, annotations) {
+		t.Errorf("Expected %v annotations but got %v", expected, annotations)
 	}
 }
 
