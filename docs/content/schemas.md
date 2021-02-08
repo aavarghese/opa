@@ -6,17 +6,22 @@ weight: 2
 
 ## Using schemas to enhance the Rego type checker
 
-You can provide an input schema and/or data schema(s) to `opa eval` to improve static type checking and get more precise error reports as you develop Rego code.
-The `-s` flag can be used to upload schemas for the input document and/or for the data documents in JSON Schema format.
+You can provide one or more input schema files and/or data schema files to `opa eval` to improve static type checking and get more precise error reports as you develop Rego code.
+
+The `-s` flag can be used to upload schemas for the input and data documents in JSON Schema format. You can either load a single input JSON schema file or all the schema files under a specified directory. When a directory path is passed, the schema file for input must be named `default-input-schema.json`.
 
 ```
 -s, --schema string set schema file path or directory path
 ```
 
-Example:
+Examples:
 ```
-opa eval data.envoy.authz.allow -i example/envoy/input.json -d example/envoy/policy.rego -s example/envoy/input-schema.json
+opa eval data.envoy.authz.allow -i opa-schema-examples/envoy/input.json -d opa-schema-examples/envoy/policy.rego -s opa-schema-examples/envoy/schemas/default-input-schema.json
+
+opa eval data.kubernetes.admission -i opa-schema-examples/kubernetes/input.json -d opa-schema-examples/kubernetes/policy.rego -s opa-schema-examples/kubernetes/schemas
+
 ```
+
 Samples provided at: https://github.com/aavarghese/opa-schema-examples/tree/main/envoy
 
 
@@ -43,7 +48,7 @@ Notice that this code has a typo in it: `input.request.kind.kinds` is undefined 
 Consider the following input document:
 
 
-`admission-review.json`
+`input.json`
 ```
 {
     "kind": "AdmissionReview",
@@ -75,7 +80,7 @@ Consider the following input document:
 
   Clearly there are 2 image names that are in violation of the policy. However, when we evalute the erroneous Rego code against this input we obtain:
   ```
-  % opa eval --format pretty -i admission-review.json -d pod.rego
+  % opa eval --format pretty -i opa-schema-examples/kubernetes/input.json -d opa-schema-examples/kubernetes/policy.rego
   $ []
   ```
 
@@ -94,12 +99,12 @@ Consider the following input document:
 
   We can pass this schema to the evaluator as follows:
   ```
-  % opa eval --format pretty -i admission-review.json -d pod.rego -s admission-schema.json
+  % opa eval --format pretty -i opa-schema-examples/kubernetes/input.json -d opa-schema-examples/kubernetes/policy.rego -s opa-schema-examples/kubernetes/schemas/default-input-schema.json
   ```
 
   With the erroneous Rego code, we now obtain the following type error:
   ```
-  1 error occurred: ../../aavarghese/opa-schema-examples/kubernetes/pod.rego:5: rego_type_error: undefined ref: input.request.kind.kinds
+  1 error occurred: ../../aavarghese/opa-schema-examples/kubernetes/policy.rego:5: rego_type_error: undefined ref: input.request.kind.kinds
 	input.request.kind.kinds
 	                   ^
 	                   have: "kinds"
@@ -110,11 +115,9 @@ Consider the following input document:
 
 ## Using annotations on Rules to further enhance the Rego type checker
 
-[Under Construction]
-
 A rule can be annotated with a comment of the form:
 
-#@rulesSchema=<expression>:data.schemas.<path-to-schema>,...,<expression>:data.schemas.<path-to-schema>
+#@rulesSchema=<expression>:<path-to-schema>,...,<expression>:<path-to-schema>
 An expression is of the form <input|data>.field1. ... .fieldN
 
 This annotation associates a schema (uploaded via OPA's `opa eval --schema`) with the corresponding expression. So it can be used to give a schema to the input or any data document. The type checker derives a Rego Object type for the schema and an appropriate entry is added to the type environment. This entry is removed upon exit from the rule.
@@ -125,11 +128,11 @@ Notice that currently the annotation needs to appear on the line immediately pre
 
 Examples:
 
-Consider a directory named `schemas` with the following structure, uploaded via `opa eval --schema /Users/ansuvarghese/opa-schema-examples/schemas`
+Consider a directory named `schemas` with the following structure, uploaded via `opa eval --schema /Users/ansuvarghese/opa-schema-examples/kubernetes/schemas`
 
 ```
 schemas
----> input.json
+---> default-input-schema.json
 ---> kubernetes
 -------> pod-schema.json
 ```
@@ -146,7 +149,9 @@ deny[msg] {
 }
 ```
 
-The above rule annotation indicates that the input has a type derived from the input schema (`input.json`) [does not need to be specified in the annotation since it is implied], and that in addition, input.request.object has a type which is derived from the pod schema. The second annotation overrides the type in the first annotation for the path input.request.object. Notice that the order of annotations matter for overriding to work correctly.
+The above rule annotation indicates that the input has a type derived from the input schema (`default-input-schema.json`) [note that the default input schema does not need to be explicitly specified in the rule annotation], and that in addition, `input.request.object` has a type which is derived from the pod data schema. The second annotation overrides the type in the first annotation for the path input.request.object. 
+
+Notice that the order of annotations matter for overriding to work correctly.
 
 ## References
 
