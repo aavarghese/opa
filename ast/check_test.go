@@ -1221,183 +1221,275 @@ const inputSchema = `{
 		"$schema": "http://json-schema.org/draft-07/schema",
 		"$id": "http://example.com/example.json",
 		"type": "object",
+		"title": "The root schema",
 		"description": "The root schema comprises the entire JSON document.",
+		"default": {},
+		"examples": [
+			{
+				"user": "alice",
+				"operation": "write"
+			}
+		],
 		"required": [
-			"kind",
-			"request"
+			"user",
+			"operation"
 		],
 		"properties": {
-			"kind": {
-				"$id": "#/properties/kind",
+			"user": {
+				"$id": "#/properties/user",
 				"type": "string",
-				"description": "An explanation about the purpose of this instance."
-			},
-			"request": {
-				"$id": "#/properties/request",
-				"type": "object",
+				"title": "The user schema",
 				"description": "An explanation about the purpose of this instance.",
-				"required": [
-					"kind",
-					"object"
-				],
-				"properties": {
-					"kind": {
-						"$id": "#/properties/request/properties/kind",
-						"type": "object",
-						"description": "An explanation about the purpose of this instance.",
-						"required": [
-							"kind",
-							"version"
-						],
-						"properties": {
-							"kind": {
-								"$id": "#/properties/request/properties/kind/properties/kind",
-								"type": "string",
-								"description": "An explanation about the purpose of this instance."
-							},
-							"version": {
-								"$id": "#/properties/request/properties/kind/properties/version",
-								"type": "string",
-								"description": "An explanation about the purpose of this instance."
-							}
-						},
-						"additionalProperties": false
-					},
-					"object": {
-						"$id": "#/properties/request/properties/object",
-						"type": "object",
-						"description": "An explanation about the purpose of this instance.",
-						"properties": {
-						},
-						"additionalProperties": false
-					}
-				},
-				"additionalProperties": false
+				"default": "",
+				"examples": [
+					"alice"
+				]
+			},
+			"operation": {
+				"$id": "#/properties/operation",
+				"type": "string",
+				"title": "The operation schema",
+				"description": "An explanation about the purpose of this instance.",
+				"default": "",
+				"examples": [
+					"write"
+				]
 			}
 		},
-		"additionalProperties": false
+		"additionalProperties": true
 }`
 
-const podRefSchema = `
-{
-    "description": "Pod is a collection of containers that can run on a host. This resource is created by clients and scheduled onto hosts.",
-    "properties": {
-      "apiVersion": {
-        "description": "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#resources",
-        "type": [
-          "string",
-          "null"
-        ]
-      },
-      "kind": {
-        "description": "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#types-kinds",
-        "type": [
-          "string",
-          "null"
-        ],
-        "enum": [
-          "Pod"
-        ]
-      },
-      "metadata": {
-        "$ref": "https://kubernetesjsonschema.dev/v1.14.0/_definitions.json#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.ObjectMeta",
-        "description": "Standard object's metadata. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#metadata"
-      },
-      "spec": {
-        "$ref": "https://kubernetesjsonschema.dev/v1.14.0/_definitions.json#/definitions/io.k8s.api.core.v1.PodSpec",
-        "description": "Specification of the desired behavior of the pod. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#spec-and-status"
-      },
-      "status": {
-        "$ref": "https://kubernetesjsonschema.dev/v1.14.0/_definitions.json#/definitions/io.k8s.api.core.v1.PodStatus",
-        "description": "Most recently observed status of the pod. This data may not be up to date. Populated by the system. Read-only. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#spec-and-status"
-      }
-    },
+const inputSchema2 = `{
+    "$schema": "http://json-schema.org/draft-07/schema",
+    "$id": "http://example.com/example.json",
     "type": "object",
-    "x-kubernetes-group-version-kind": [
-      {
-        "group": "",
-        "kind": "Pod",
-        "version": "v1"
-      }
+    "title": "The root schema",
+    "description": "The root schema comprises the entire JSON document.",
+    "default": {},
+    "examples": [
+        {
+            "operation": "read"
+        }
     ],
-    "$schema": "http://json-schema.org/schema#"
-  }
-`
+    "required": [
+        "operation"
+    ],
+    "properties": {
+        "operation": {
+            "$id": "#/properties/operation",
+            "type": "string",
+            "title": "The operation schema",
+            "description": "An explanation about the purpose of this instance.",
+            "default": "",
+            "examples": [
+                "read"
+            ]
+        }
+    },
+    "additionalProperties": true
+}`
+
+const dataSchema = `{
+    "$schema": "http://json-schema.org/draft-07/schema",
+    "$id": "http://example.com/example.json",
+    "type": "object",
+    "title": "The root schema",
+    "description": "The root schema comprises the entire JSON document.",
+    "default": {},
+    "examples": [
+        {
+            "alice": [
+                "read",
+                "write"
+            ],
+            "bob": [
+                "read"
+            ]
+        }
+    ],
+    "required": [
+        "alice",
+        "bob"
+    ],
+    "properties": {
+        "alice": {
+            "$id": "#/properties/alice",
+            "type": "array",
+            "title": "The alice schema",
+            "description": "An explanation about the purpose of this instance.",
+            "default": [],
+            "examples": [
+                [
+                    "read",
+                    "write"
+                ]
+            ],
+            "additionalItems": false,
+            "items": {
+                "$id": "#/properties/alice/items",
+                "type": "string",
+                "title": "The items schema",
+                "description": "An explanation about the purpose of this instance.",
+                "default": "",
+                "examples": [
+                    [
+                        "read",
+                        "write"
+                    ]
+                ]
+            }
+        },
+        "bob": {
+            "$id": "#/properties/bob",
+            "type": "array",
+            "title": "The bob schema",
+            "description": "An explanation about the purpose of this instance.",
+            "default": [],
+            "examples": [
+                [
+                    "read"
+                ]
+            ],
+            "additionalItems": false,
+            "items": {
+                "$id": "#/properties/bob/items",
+                "type": "string",
+                "title": "The items schema",
+                "description": "An explanation about the purpose of this instance.",
+                "default": "",
+                "examples": [
+                    [
+                        "read"
+                    ]
+                ]
+            }
+        }
+    },
+    "additionalProperties": true
+}`
 
 func TestCheckAnnotationRules(t *testing.T) {
-	ruleset := [][2]string{
-		{`a`, `deny[msg] {input.request.kind.kind}`},
-		{`b`, `deny[msg] {input.request.object.spec.containers[_].image}`},
-	}
 
-	var schema interface{}
-	_ = util.Unmarshal([]byte(inputSchema), &schema)
+	var ischema interface{}
+	_ = util.Unmarshal([]byte(inputSchema), &ischema)
 
-	var podSchema interface{}
-	_ = util.Unmarshal([]byte(podRefSchema), &podSchema)
+	var ischema2 interface{}
+	_ = util.Unmarshal([]byte(inputSchema2), &ischema2)
 
-	module := MustParseModule(`
-	package kubernetes.admission                                                
-`)
-
-	var elems []util.T
-
-	for i := range ruleset {
-		rule := MustParseRule(ruleset[i][1])
-		rule.Module = module
-		sa := []*SchemaAnnotation{}
-		sa = append(sa, &SchemaAnnotation{Name: "input", Schema: "input"})
-		sa = append(sa, &SchemaAnnotation{Name: "input.request.object", Schema: "schemas.kubernetes.pod"})
-		rule.Annotation = sa
-		elems = append(elems, rule)
-		for next := rule.Else; next != nil; next = next.Else {
-			next.Module = module
-			elems = append(elems, next)
-		}
-	}
-
-	schemaSet := &SchemaSet{ByPath: map[string]interface{}{"input": schema, "schemas.kubernetes.pod": podSchema}}
-	_, err := newTypeChecker().CheckTypes(NewTypeEnv().WithSchemas(schemaSet), elems)
-	if len(err) > 0 {
-		panic(err)
-	}
-}
-
-func TestCheckAnnotationRulesTypeError(t *testing.T) {
-	ruleset := [][2]string{
-		{`a`, `deny[msg] {input.request.kind.kinds}`},
-		{`b`, `deny[msg] {input.request.object.spec.blah.containers[_].image}`},
-	}
-
-	var schema interface{}
-	_ = util.Unmarshal([]byte(inputSchema), &schema)
-
-	var podSchema interface{}
-	_ = util.Unmarshal([]byte(podRefSchema), &podSchema)
+	var dschema interface{}
+	_ = util.Unmarshal([]byte(dataSchema), &dschema)
 
 	module := MustParseModule(`
-	package kubernetes.admission                                                
+	package policy
+
+	import data.acl
+	import input
+
+	default allow = false
+
+	#@rulesSchema=input:default-input-schema,data.acl:schemas.acl-schema
+	allow {
+			access = data.acl[input.user]
+			access[_] == input.operation
+	}
 `)
 
-	var elems []util.T
+	module2 := MustParseModule(`
+	package policy
 
-	for i := range ruleset {
-		rule := MustParseRule(ruleset[i][1])
-		rule.Module = module
-		sa := []*SchemaAnnotation{}
-		sa = append(sa, &SchemaAnnotation{Name: "input", Schema: "input"})
-		sa = append(sa, &SchemaAnnotation{Name: "input.request.object", Schema: "schemas.kubernetes.pod"})
-		rule.Annotation = sa
-		elems = append(elems, rule)
-		for next := rule.Else; next != nil; next = next.Else {
-			next.Module = module
-			elems = append(elems, next)
-		}
+	import data.acl
+	import input
+
+	default allow = false
+
+	#@rulesSchema=input:default-input-schema,input:schemas.whocan-input-schema,data.acl:schemas.acl-schema
+	whocan[user] {
+			access = acl[user]
+			access[_] == input.operation
+	}`)
+
+	module3 := MustParseModule(`
+	package policy
+
+	import data.acl
+	import input
+
+	default allow = false
+
+	#@rulesSchema=input:default-input-schema,input:schemas.whocan-input-schema,data.acl:schemas.acl-schema
+	allow {
+		access = data.acl[input.user]
+		access[_] == input.operation
+	}`)
+
+	module4 := MustParseModule(`
+	package policy
+
+	import data.acl
+	import input
+
+	default allow = false
+
+	#@rulesSchema=input:schemas.badpath
+	whocan[user] {
+			access = acl[user]
+			access[_] == input.operation
+	}`)
+
+	module5 := MustParseModule(`
+	package policy
+
+	import data.acl
+	import input
+
+	default allow = false
+
+	#@rulesSchema=badref:schemas.whocan-input-schema
+	whocan[user] {
+			access = acl[user]
+			access[_] == input.operation
+	}`)
+
+	schemaSet := &SchemaSet{ByPath: map[string]interface{}{"default-input-schema": ischema, "schemas.whocan-input-schema": ischema2, "schemas.acl-schema": dschema}}
+
+	tests := map[string]struct {
+		module    *Module
+		schemaSet *SchemaSet
+		query     []string
+		treesize  int
+		err       string
+	}{
+		"data and input annotations":          {module: module, schemaSet: schemaSet, treesize: 2, query: []string{`data.policy.allow`}},
+		"correct data override":               {module: module2, schemaSet: schemaSet, treesize: 2, query: []string{`data.policy.whocan`}},
+		"incorrect data override":             {module: module3, schemaSet: schemaSet, err: "undefined ref", query: []string{`data.policy.whocan`}},
+		"empty schema set":                    {module: module, schemaSet: nil, err: "Schemas need to be supplied for the annotation", query: []string{`data.policy.whocan`}},
+		"schema not exist in annotation path": {module: module4, schemaSet: schemaSet, err: "Schema does not exist for given path in annotation", query: []string{`data.policy.whocan`}},
+		"non ref in annotation":               {module: module5, schemaSet: schemaSet, err: "expected ref but got", query: []string{`data.policy.whocan`}},
 	}
 
-	schemaSet := &SchemaSet{ByPath: map[string]interface{}{"input": schema, "schemas.kubernetes.pod": podSchema}}
-	_, errs := newTypeChecker().CheckTypes(NewTypeEnv().WithSchemas(schemaSet), elems)
-	if len(errs) != 2 {
-		t.Fatal("expected exactly two errors but got:", len(errs))
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+
+			var elems []util.T
+			for _, rule := range tc.module.Rules {
+				elems = append(elems, rule)
+				for next := rule.Else; next != nil; next = next.Else {
+					next.Module = module
+					elems = append(elems, next)
+				}
+			}
+
+			typeenv, err := newTypeChecker().CheckTypes(newTypeChecker().checkLanguageBuiltins(nil, BuiltinMap).WithSchemas(tc.schemaSet), elems)
+			if len(err) > 0 {
+				if tc.err == "" || !strings.Contains(err.Error(), tc.err) {
+					t.Fatalf("Unexpected check rule error when processing annotations: %v", err)
+				}
+				return
+			}
+
+			if typeenv.tree.children.Len() != tc.treesize {
+				t.Fatalf("Expected %v number of elements in typeenv but got: %v", tc.treesize, typeenv.tree.children.Len())
+			}
+		})
 	}
 }
