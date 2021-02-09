@@ -118,6 +118,7 @@ Consider the following input document:
 A rule can be annotated with a comment of the form:
 
 #@rulesSchema=<expression>:<path-to-schema>,...,<expression>:<path-to-schema>
+
 An expression is of the form <input|data>.field1. ... .fieldN
 
 This annotation associates a schema (uploaded via OPA's `opa eval --schema`) with the corresponding expression. So it can be used to give a schema to the input or any data document. The type checker derives a Rego Object type for the schema and an appropriate entry is added to the type environment. This entry is removed upon exit from the rule.
@@ -149,7 +150,7 @@ deny[msg] {
 }
 ```
 
-The above rule annotation indicates that the input has a type derived from the input schema (`default-input-schema.json`) [note that the default input schema does not need to be explicitly specified in the rule annotation], and that in addition, `input.request.object` has a type which is derived from the pod data schema. The second annotation overrides the type in the first annotation for the path input.request.object. 
+The above rule annotation indicates that the input has a type derived from the input schema (`default-input-schema.json`) [note that the default input schema does not need to be explicitly specified in the rule annotation], and that in addition, `input.request.object` has a type which is derived from the pod data schema. The second annotation overrides the type in the first annotation for the path `input.request.object`. 
 
 Notice that the order of annotations matter for overriding to work correctly.
 

@@ -2663,42 +2663,142 @@ else = {
 }
 
 func TestGetAnnotation(t *testing.T) {
-	const (
-		testModule = `
-	package opa.examples
 
-	import data.servers
-	import data.networks
-	import data.ports
-
-	#Schema annotation for this rule referencing three schemas
-	#@rulesSchema=data.servers:schemas.servers,data.networks:schemas.networks,data.ports:schemas.ports
-	public_servers[server] {
-		server = servers[i]; server.ports[j] = ports[k].id
-		ports[k].networks[l] = networks[m].id;
-		networks[m].public = true
-	}`
-	)
-
-	mod, err := ParseModule("test.rego", testModule)
-	if err != nil {
-		t.Fatalf("Unexpected parse error when getting annotations: %v", err)
+	tests := []struct {
+		note              string
+		testModule        string
+		expNumComments    int
+		expNumAnnotations int
+		expAnnotations    []*SchemaAnnotation
+		expError          string
+	}{
+		{
+			note: "Single valid annotation",
+			testModule: `
+			package opa.examples
+		
+			import data.servers
+			import data.networks
+			import data.ports
+		
+			#Schema annotation for this rule referencing three schemas
+			#@rulesSchema=data.servers:schemas.servers
+			public_servers[server] {
+				server = servers[i]; server.ports[j] = ports[k].id
+				ports[k].networks[l] = networks[m].id;
+				networks[m].public = true
+			}`,
+			expNumComments:    2,
+			expNumAnnotations: 1,
+			expAnnotations:    []*SchemaAnnotation{&SchemaAnnotation{Name: "data.servers", Schema: "schemas.servers"}},
+		},
+		{
+			note: "Multiple annotations on a single line",
+			testModule: `
+			package opa.examples
+		
+			import data.servers
+			import data.networks
+			import data.ports
+		
+			#Schema annotation for this rule referencing three schemas
+			#@rulesSchema=data.servers:schemas.servers,data.networks:schemas.networks,data.ports:schemas.ports
+			public_servers[server] {
+				server = servers[i]; server.ports[j] = ports[k].id
+				ports[k].networks[l] = networks[m].id;
+				networks[m].public = true
+			}`,
+			expNumComments:    2,
+			expNumAnnotations: 3,
+			expAnnotations:    []*SchemaAnnotation{&SchemaAnnotation{Name: "data.servers", Schema: "schemas.servers"}, &SchemaAnnotation{Name: "data.networks", Schema: "schemas.networks"}, &SchemaAnnotation{Name: "data.ports", Schema: "schemas.ports"}},
+		},
+		{
+			note: "Multiple annotations on a multiple lines",
+			testModule: `
+			package opa.examples
+		
+			import data.servers
+			import data.networks
+			import data.ports
+		
+			#Schema annotation for this rule referencing three schemas
+			#@rulesSchema=data.servers:schemas.servers
+			#@rulesSchema=data.networks:schemas.networks,data.ports:schemas.ports
+			public_servers[server] {
+				server = servers[i]; server.ports[j] = ports[k].id
+				ports[k].networks[l] = networks[m].id;
+				networks[m].public = true
+			}`,
+			expNumComments:    3,
+			expNumAnnotations: 2,
+			expAnnotations:    []*SchemaAnnotation{&SchemaAnnotation{Name: "data.networks", Schema: "schemas.networks"}, &SchemaAnnotation{Name: "data.ports", Schema: "schemas.ports"}},
+		},
+		{
+			note: "Ill-structured (valid) annotation",
+			testModule: `
+			package opa.examples
+		
+			import data.servers
+			import data.networks
+			import data.ports
+		
+			#Schema annotation for this rule referencing three schemas
+			#@rulesSchema=data/servers:schemas/servers
+			public_servers[server] {
+				server = servers[i]; server.ports[j] = ports[k].id
+				ports[k].networks[l] = networks[m].id;
+				networks[m].public = true
+			}`,
+			expNumComments:    2,
+			expNumAnnotations: 1,
+			expAnnotations:    []*SchemaAnnotation{&SchemaAnnotation{Name: "data/servers", Schema: "schemas/servers"}},
+		},
+		{
+			note: "Ill-structured (invalid) annotation",
+			testModule: `
+			package opa.examples
+		
+			import data.servers
+			import data.networks
+			import data.ports
+		
+			#Schema annotation for this rule referencing three schemas
+			#@rulesSchema=data.servers=schemas
+			public_servers[server] {
+				server = servers[i]; server.ports[j] = ports[k].id
+				ports[k].networks[l] = networks[m].id;
+				networks[m].public = true
+			}`,
+			expNumComments:    2,
+			expNumAnnotations: 0,
+			expAnnotations:    nil,
+			expError:          "Invalid schema annotation:",
+		},
 	}
 
-	if len(mod.Comments) != 2 { //description + annotation
-		t.Errorf("Expected %v comments but got %v", 2, len(mod.Comments))
-	}
+	for _, tc := range tests {
+		t.Run(tc.note, func(t *testing.T) {
+			mod, err := ParseModule("test.rego", tc.testModule)
+			if err != nil {
+				if tc.expError == "" || !strings.Contains(err.Error(), tc.expError) {
+					t.Fatalf("Unexpected parse error when getting annotations: %v", err)
+				}
+				return
+			}
 
-	annotations := mod.Rules[0].Annotation
-	if len(annotations) != 3 {
-		t.Errorf("Expected %v annotations but got %v", 3, len(annotations))
-	}
+			if len(mod.Comments) != tc.expNumComments {
+				t.Errorf("Expected %v comments but got %v", tc.expNumComments, len(mod.Comments))
+			}
 
-	expected := []*SchemaAnnotation{}
-	expected = append(expected, &SchemaAnnotation{Name: "data.servers", Schema: "schemas.servers"}, &SchemaAnnotation{Name: "data.networks", Schema: "schemas.networks"}, &SchemaAnnotation{Name: "data.ports", Schema: "schemas.ports"})
+			annotations := mod.Rules[0].Annotation
+			if len(annotations) != tc.expNumAnnotations {
+				t.Errorf("Expected %v annotations but got %v", tc.expNumAnnotations, len(annotations))
+			}
 
-	if !reflect.DeepEqual(expected, annotations) {
-		t.Errorf("Expected %v annotations but got %v", expected, annotations)
+			if !reflect.DeepEqual(tc.expAnnotations, annotations) {
+				t.Errorf("Expected %v annotations but got %v", tc.expAnnotations, annotations)
+			}
+		})
 	}
 }
 
