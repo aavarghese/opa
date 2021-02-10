@@ -117,9 +117,9 @@ Consider the following input document:
 
 A rule can be annotated with a comment of the form:
 
-#@rulesSchema=<expression>:<path-to-schema>,...,<expression>:<path-to-schema>
+#@rulesSchema=`<expression>:<path-to-schema>,...,<expression>:<path-to-schema>`
 
-An expression is of the form <input|data>.field1. ... .fieldN
+An expression is of the form `<input|data>.field1. ... .fieldN`
 
 This annotation associates a schema (uploaded via OPA's `opa eval --schema`) with the corresponding expression. So it can be used to give a schema to the input or any data document. The type checker derives a Rego Object type for the schema and an appropriate entry is added to the type environment. This entry is removed upon exit from the rule.
 
