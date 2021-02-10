@@ -1379,7 +1379,7 @@ func TestCheckAnnotationRules(t *testing.T) {
 	var dschema interface{}
 	_ = util.Unmarshal([]byte(dataSchema), &dschema)
 
-	module := MustParseModule(`
+	module, errM := ParseModule("test.rego", `
 	package policy
 
 	import data.acl
@@ -1394,7 +1394,7 @@ func TestCheckAnnotationRules(t *testing.T) {
 	}
 `)
 
-	module2 := MustParseModule(`
+	module2, errM2 := ParseModule("test.rego", `
 	package policy
 
 	import data.acl
@@ -1408,7 +1408,7 @@ func TestCheckAnnotationRules(t *testing.T) {
 			access[_] == input.operation
 	}`)
 
-	module3 := MustParseModule(`
+	module3, errM3 := ParseModule("test.rego", `
 	package policy
 
 	import data.acl
@@ -1422,7 +1422,7 @@ func TestCheckAnnotationRules(t *testing.T) {
 		access[_] == input.operation
 	}`)
 
-	module4 := MustParseModule(`
+	module4, errM4 := ParseModule("test.rego", `
 	package policy
 
 	import data.acl
@@ -1436,7 +1436,7 @@ func TestCheckAnnotationRules(t *testing.T) {
 			access[_] == input.operation
 	}`)
 
-	module5 := MustParseModule(`
+	module5, errM5 := ParseModule("test.rego", `
 	package policy
 
 	import data.acl
@@ -1450,25 +1450,63 @@ func TestCheckAnnotationRules(t *testing.T) {
 			access[_] == input.operation
 	}`)
 
+	module6, errM6 := ParseModule("test.rego", `
+	package policy
+
+	import data.acl
+	import input
+
+	default allow = false
+
+	#@rulesSchema=data/acl:schemas/acl-schema
+	whocan[user] {
+			access = acl[user]
+			access[_] == input.operation
+	}`)
+
+	module7, errM7 := ParseModule("test.rego", `
+	package policy
+
+	import data.acl
+	import input
+
+	default allow = false
+
+	#@rulesSchema=input=schemas.whocan-input-schema
+	whocan[user] {
+			access = acl[user]
+			access[_] == input.operation
+	}`)
+
 	schemaSet := &SchemaSet{ByPath: map[string]interface{}{"default-input-schema": ischema, "schemas.whocan-input-schema": ischema2, "schemas.acl-schema": dschema}}
 
 	tests := map[string]struct {
-		module    *Module
-		schemaSet *SchemaSet
-		query     []string
-		treesize  int
-		err       string
+		module     *Module
+		parseError error
+		schemaSet  *SchemaSet
+		query      []string
+		treesize   int
+		err        string
 	}{
-		"data and input annotations":          {module: module, schemaSet: schemaSet, treesize: 2, query: []string{`data.policy.allow`}},
-		"correct data override":               {module: module2, schemaSet: schemaSet, treesize: 2, query: []string{`data.policy.whocan`}},
-		"incorrect data override":             {module: module3, schemaSet: schemaSet, err: "undefined ref", query: []string{`data.policy.whocan`}},
-		"empty schema set":                    {module: module, schemaSet: nil, err: "Schemas need to be supplied for the annotation", query: []string{`data.policy.whocan`}},
-		"schema not exist in annotation path": {module: module4, schemaSet: schemaSet, err: "Schema does not exist for given path in annotation", query: []string{`data.policy.whocan`}},
-		"non ref in annotation":               {module: module5, schemaSet: schemaSet, err: "expected ref but got", query: []string{`data.policy.whocan`}},
+		"data and input annotations":              {module: module, parseError: errM, schemaSet: schemaSet, treesize: 2, query: []string{`data.policy.allow`}},
+		"correct data override":                   {module: module2, parseError: errM2, schemaSet: schemaSet, treesize: 2, query: []string{`data.policy.whocan`}},
+		"incorrect data override":                 {module: module3, parseError: errM3, schemaSet: schemaSet, err: "undefined ref", query: []string{`data.policy.whocan`}},
+		"empty schema set":                        {module: module, parseError: errM, schemaSet: nil, err: "Schemas need to be supplied for the annotation", query: []string{`data.policy.whocan`}},
+		"schema not exist in annotation path":     {module: module4, parseError: errM4, schemaSet: schemaSet, err: "Schema does not exist for given path in annotation", query: []string{`data.policy.whocan`}},
+		"non ref in annotation":                   {module: module5, parseError: errM5, schemaSet: schemaSet, err: "expected ref but got", query: []string{`data.policy.whocan`}},
+		"Ill-structured annotation with bad path": {module: module6, parseError: errM6, schemaSet: schemaSet, err: "Schema does not exist for given path in annotation", query: []string{`data.policy.whocan`}},
+		"Ill-structured (invalid) annotation":     {module: module7, parseError: errM7, schemaSet: schemaSet, err: "Invalid schema annotation", query: []string{`data.policy.whocan`}},
 	}
 
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
+
+			if tc.parseError != nil {
+				if !strings.Contains(tc.parseError.Error(), tc.err) {
+					t.Fatalf("Unexpected parse module error when processing annotations: %v", tc.parseError)
+				}
+				return
+			}
 
 			var elems []util.T
 			for _, rule := range tc.module.Rules {
