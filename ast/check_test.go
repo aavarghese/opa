@@ -1218,45 +1218,45 @@ func newTestEnv(rs []string) *TypeEnv {
 }
 
 const inputSchema = `{
-		"$schema": "http://json-schema.org/draft-07/schema",
-		"$id": "http://example.com/example.json",
-		"type": "object",
-		"title": "The root schema",
-		"description": "The root schema comprises the entire JSON document.",
-		"default": {},
-		"examples": [
-			{
-				"user": "alice",
-				"operation": "write"
-			}
-		],
-		"required": [
-			"user",
-			"operation"
-		],
-		"properties": {
-			"user": {
-				"$id": "#/properties/user",
-				"type": "string",
-				"title": "The user schema",
-				"description": "An explanation about the purpose of this instance.",
-				"default": "",
-				"examples": [
-					"alice"
-				]
-			},
-			"operation": {
-				"$id": "#/properties/operation",
-				"type": "string",
-				"title": "The operation schema",
-				"description": "An explanation about the purpose of this instance.",
-				"default": "",
-				"examples": [
-					"write"
-				]
-			}
+	"$schema": "http://json-schema.org/draft-07/schema",
+	"$id": "http://example.com/example.json",
+	"type": "object",
+	"title": "The root schema",
+	"description": "The root schema comprises the entire JSON document.",
+	"default": {},
+	"examples": [
+		{
+			"user": "alice",
+			"operation": "write"
+		}
+	],
+	"required": [
+		"user",
+		"operation"
+	],
+	"properties": {
+		"user": {
+			"$id": "#/properties/user",
+			"type": "string",
+			"title": "The user schema",
+			"description": "An explanation about the purpose of this instance.",
+			"default": "",
+			"examples": [
+				"alice"
+			]
 		},
-		"additionalProperties": true
+		"operation": {
+			"$id": "#/properties/operation",
+			"type": "string",
+			"title": "The operation schema",
+			"description": "An explanation about the purpose of this instance.",
+			"default": "",
+			"examples": [
+				"write"
+			]
+		}
+	},
+	"additionalProperties": true
 }`
 
 const inputSchema2 = `{
@@ -1379,7 +1379,7 @@ func TestCheckAnnotationRules(t *testing.T) {
 	var dschema interface{}
 	_ = util.Unmarshal([]byte(dataSchema), &dschema)
 
-	module, errM := ParseModule("test.rego", `
+	module1 := `
 	package policy
 
 	import data.acl
@@ -1391,10 +1391,9 @@ func TestCheckAnnotationRules(t *testing.T) {
 	allow {
 			access = data.acl[input.user]
 			access[_] == input.operation
-	}
-`)
+	}`
 
-	module2, errM2 := ParseModule("test.rego", `
+	module2 := `
 	package policy
 
 	import data.acl
@@ -1406,9 +1405,9 @@ func TestCheckAnnotationRules(t *testing.T) {
 	whocan[user] {
 			access = acl[user]
 			access[_] == input.operation
-	}`)
+	}`
 
-	module3, errM3 := ParseModule("test.rego", `
+	module3 := `
 	package policy
 
 	import data.acl
@@ -1420,9 +1419,9 @@ func TestCheckAnnotationRules(t *testing.T) {
 	allow {
 		access = data.acl[input.user]
 		access[_] == input.operation
-	}`)
+	}`
 
-	module4, errM4 := ParseModule("test.rego", `
+	module4 := `
 	package policy
 
 	import data.acl
@@ -1434,9 +1433,9 @@ func TestCheckAnnotationRules(t *testing.T) {
 	whocan[user] {
 			access = acl[user]
 			access[_] == input.operation
-	}`)
+	}`
 
-	module5, errM5 := ParseModule("test.rego", `
+	module5 := `
 	package policy
 
 	import data.acl
@@ -1448,9 +1447,9 @@ func TestCheckAnnotationRules(t *testing.T) {
 	whocan[user] {
 			access = acl[user]
 			access[_] == input.operation
-	}`)
+	}`
 
-	module6, errM6 := ParseModule("test.rego", `
+	module6 := `
 	package policy
 
 	import data.acl
@@ -1462,9 +1461,9 @@ func TestCheckAnnotationRules(t *testing.T) {
 	whocan[user] {
 			access = acl[user]
 			access[_] == input.operation
-	}`)
+	}`
 
-	module7, errM7 := ParseModule("test.rego", `
+	module7 := `
 	package policy
 
 	import data.acl
@@ -1476,51 +1475,55 @@ func TestCheckAnnotationRules(t *testing.T) {
 	whocan[user] {
 			access = acl[user]
 			access[_] == input.operation
-	}`)
+	}`
 
-	schemaSet := &SchemaSet{ByPath: map[string]interface{}{"default-input-schema": ischema, "schemas.whocan-input-schema": ischema2, "schemas.acl-schema": dschema}}
+	schemaSet := &SchemaSet{ByPath: map[string]interface{}{
+		"default-input-schema":        ischema,
+		"schemas.whocan-input-schema": ischema2,
+		"schemas.acl-schema":          dschema,
+	}}
 
 	tests := map[string]struct {
-		module     *Module
-		parseError error
-		schemaSet  *SchemaSet
-		query      []string
-		treesize   int
-		err        string
+		module    string
+		schemaSet *SchemaSet
+		treesize  int
+		err       string
 	}{
-		"data and input annotations":              {module: module, parseError: errM, schemaSet: schemaSet, treesize: 2, query: []string{`data.policy.allow`}},
-		"correct data override":                   {module: module2, parseError: errM2, schemaSet: schemaSet, treesize: 2, query: []string{`data.policy.whocan`}},
-		"incorrect data override":                 {module: module3, parseError: errM3, schemaSet: schemaSet, err: "undefined ref", query: []string{`data.policy.whocan`}},
-		"empty schema set":                        {module: module, parseError: errM, schemaSet: nil, err: "Schemas need to be supplied for the annotation", query: []string{`data.policy.whocan`}},
-		"schema not exist in annotation path":     {module: module4, parseError: errM4, schemaSet: schemaSet, err: "Schema does not exist for given path in annotation", query: []string{`data.policy.whocan`}},
-		"non ref in annotation":                   {module: module5, parseError: errM5, schemaSet: schemaSet, err: "expected ref but got", query: []string{`data.policy.whocan`}},
-		"Ill-structured annotation with bad path": {module: module6, parseError: errM6, schemaSet: schemaSet, err: "Schema does not exist for given path in annotation", query: []string{`data.policy.whocan`}},
-		"Ill-structured (invalid) annotation":     {module: module7, parseError: errM7, schemaSet: schemaSet, err: "Invalid schema annotation", query: []string{`data.policy.whocan`}},
+		"data and input annotations":              {module: module1, schemaSet: schemaSet, treesize: 2},
+		"correct data override":                   {module: module2, schemaSet: schemaSet, treesize: 2},
+		"incorrect data override":                 {module: module3, schemaSet: schemaSet, err: "undefined ref"},
+		"schema not exist in annotation path":     {module: module4, schemaSet: schemaSet, err: "Schema does not exist for given path in annotation"},
+		"non ref in annotation":                   {module: module5, schemaSet: schemaSet, err: "expected ref but got"},
+		"Ill-structured annotation with bad path": {module: module6, schemaSet: schemaSet, err: "Schema does not exist for given path in annotation"},
+		"Ill-structured (invalid) annotation":     {module: module7, schemaSet: schemaSet, err: "Invalid schema annotation"},
+		"empty schema set":                        {module: module1, schemaSet: nil, err: "Schemas need to be supplied for the annotation"},
 	}
 
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
-
-			if tc.parseError != nil {
-				if !strings.Contains(tc.parseError.Error(), tc.err) {
-					t.Fatalf("Unexpected parse module error when processing annotations: %v", tc.parseError)
+			mod, err := ParseModule("test.rego", tc.module)
+			if err != nil {
+				if !strings.Contains(err.Error(), tc.err) {
+					t.Fatalf("Unexpected parse module error when processing annotations: %v", err)
 				}
 				return
 			}
 
 			var elems []util.T
-			for _, rule := range tc.module.Rules {
+			for _, rule := range mod.Rules {
 				elems = append(elems, rule)
 				for next := rule.Else; next != nil; next = next.Else {
-					next.Module = module
+					next.Module = mod
 					elems = append(elems, next)
 				}
 			}
 
-			typeenv, err := newTypeChecker().CheckTypes(newTypeChecker().checkLanguageBuiltins(nil, BuiltinMap).WithSchemas(tc.schemaSet), elems)
-			if len(err) > 0 {
-				if tc.err == "" || !strings.Contains(err.Error(), tc.err) {
-					t.Fatalf("Unexpected check rule error when processing annotations: %v", err)
+			typeenv, errors := newTypeChecker().CheckTypes(newTypeChecker().checkLanguageBuiltins(nil, BuiltinMap).WithSchemas(tc.schemaSet), elems)
+			if len(errors) > 0 {
+				for _, e := range errors {
+					if tc.err == "" || !strings.Contains(e.Error(), tc.err) {
+						t.Fatalf("Unexpected check rule error when processing annotations: %v", e)
+					}
 				}
 				return
 			}

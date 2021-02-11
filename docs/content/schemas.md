@@ -16,7 +16,7 @@ The `-s` flag can be used to upload schemas for the input and data documents in 
 
 Examples:
 ```
-opa eval data.envoy.authz.allow -i opa-schema-examples/envoy/input.json -d opa-schema-examples/envoy/policy.rego -s opa-schema-examples/envoy/schemas/default-input-schema.json
+opa eval data.envoy.authz.allow -i opa-schema-examples/envoy/input.json -d opa-schema-examples/envoy/policy.rego -s opa-schema-examples/envoy/schemas/input-schema.json
 
 opa eval data.kubernetes.admission -i opa-schema-examples/kubernetes/input.json -d opa-schema-examples/kubernetes/policy.rego -s opa-schema-examples/kubernetes/schemas
 
@@ -121,7 +121,7 @@ A rule can be annotated with a comment of the form:
 
 An expression is of the form `<input|data>.field1. ... .fieldN`
 
-This annotation associates a schema (uploaded via OPA's `opa eval --schema`) with the corresponding expression. So it can be used to give a schema to the input or any data document. The type checker derives a Rego Object type for the schema and an appropriate entry is added to the type environment. This entry is removed upon exit from the rule.
+This annotation associates a schema (provided via OPA's `opa eval --schema`) with the corresponding expression. So it can be used to give a schema to the input or any data document. The type checker derives a Rego Object type for the schema and an appropriate entry is added to the type environment. This entry is removed upon exit from the rule.
 
 Annotations allow overriding when a prefix of an expression has a type in the type environment (see example below).
 
@@ -131,11 +131,11 @@ Examples:
 
 Consider a directory named `schemas` with the following structure, uploaded via `opa eval --schema /Users/ansuvarghese/opa-schema-examples/kubernetes/schemas`
 
-```
-schemas
----> default-input-schema.json
----> kubernetes
--------> pod-schema.json
+```$ tree schemas/
+schemas/
+├── default-input-schema.json
+└── kubernetes
+    └── pod-schema.json
 ```
 
 ```

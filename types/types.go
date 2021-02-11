@@ -313,9 +313,6 @@ func (t *Object) DynamicValue() Type {
 
 // StaticProperties returns the type of the object's static elements.
 func (t *Object) StaticProperties() []*StaticProperty {
-	if t.static == nil {
-		return nil
-	}
 	return t.static
 }
 

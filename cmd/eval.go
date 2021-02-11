@@ -208,9 +208,9 @@ Set the output format with the --format flag.
 Schema
 ------
 
-The -s/--schema flag provides one or more JSON Schemas used to validate references to the input and/or data documents.
-Can load a single input JSON schema file or all the schema files under the specified directory. 
-When a directory is passed, schema file for input must be named 'default-input-schema.json'.
+The -s/--schema flag provides one or more JSON Schemas used to validate references to the input or data documents.
+Loads a single JSON file, applying it to the input document; or all the schema files under the specified directory.
+When a directory is passed, the schema file for input must be named 'default-input-schema.json'.
 
 	$ opa eval --data policy.rego --input input.json --schema schema.json
 	$ opa eval --data policy.rego --input input.json --schema schemas/
@@ -568,27 +568,30 @@ func readSchemaBytes(params evalCommandParams) (*ast.SchemaSet, error) {
 		err = filepath.Walk(path,
 			func(path string, info os.FileInfo, err error) error {
 				if err != nil {
-					return fmt.Errorf("error in walking file path: %s", err.Error())
+					return fmt.Errorf("error in walking file path: %w", err)
 				}
 
-				if !info.IsDir() { //adding only schema "Files" to the set
-					schemaBytes, err := ioutil.ReadFile(path)
-					if err != nil {
-						return err
-					}
-					err = util.Unmarshal(schemaBytes, &schema)
-					if err != nil {
-						return fmt.Errorf("unable to unmarshal schema: %s", err.Error())
-					}
+				if info.IsDir() { // ignoring directories
+					return nil
+				}
 
-					if info.Name() == defaultInputSchemaFileName {
-						schemaSet["input"] = schema
-					} else {
-						subDirs := strings.SplitAfterN(filepath.Dir(path), parentDir, 2)[1] //get rest of the path after main schema directory
-						fileNameNoExt := strings.TrimSuffix(info.Name(), filepath.Ext(info.Name()))
-						relPath := strings.ReplaceAll(filepath.Join(parentDir, subDirs, fileNameNoExt), "/", ".")
-						schemaSet[relPath] = schema
-					}
+				// proceed knowing it's a file
+				schemaBytes, err := ioutil.ReadFile(path)
+				if err != nil {
+					return err
+				}
+				err = util.Unmarshal(schemaBytes, &schema)
+				if err != nil {
+					return fmt.Errorf("unable to unmarshal schema: %s", err.Error())
+				}
+
+				if info.Name() == defaultInputSchemaFileName {
+					schemaSet["input"] = schema
+				} else {
+					subDirs := strings.SplitAfterN(filepath.Dir(path), parentDir, 2)[1] //get rest of the path after main schema directory
+					fileNameNoExt := strings.TrimSuffix(info.Name(), filepath.Ext(info.Name()))
+					relPath := strings.ReplaceAll(filepath.Join(parentDir, subDirs, fileNameNoExt), "/", ".")
+					schemaSet[relPath] = schema
 				}
 				return nil
 			})

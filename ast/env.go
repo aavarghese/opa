@@ -23,7 +23,7 @@ func NewTypeEnv() *TypeEnv {
 	}
 }
 
-// WithSchemas sets the user-provider schemas
+// WithSchemas sets the user-provided schemas
 func (env *TypeEnv) WithSchemas(schemas *SchemaSet) *TypeEnv {
 	env.schemaSet = schemas
 	return env

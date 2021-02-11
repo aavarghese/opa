@@ -206,9 +206,9 @@ func (tc *typeChecker) processAnnotation(annot *SchemaAnnotation, env *TypeEnv, 
 }
 
 func (tc *typeChecker) checkRule(env *TypeEnv, rule *Rule) {
-	if rule.Annotation != nil {
+	if rule.Annotations != nil {
 		errors := []*Error{}
-		for _, annot := range rule.Annotation {
+		for _, annot := range rule.Annotations {
 			ref, refType, err := tc.processAnnotation(annot, env, rule)
 			if err != nil {
 				errors = append(errors, err)

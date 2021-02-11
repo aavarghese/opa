@@ -275,8 +275,9 @@ func testEvalWithInvalidSchemaFile(t *testing.T, input string, query string, sch
 
 func testReadParamWithSchemaDir(t *testing.T, input string, query string, inputSchema string) error {
 	files := map[string]string{
-		"input.json":                        input,
-		"schemas/default-input-schema.json": inputSchema,
+		"input.json":                          input,
+		"schemas/default-input-schema.json":   inputSchema,
+		"schemas/kubernetes/data-schema.json": inputSchema,
 	}
 
 	var err error
@@ -292,8 +293,8 @@ func testReadParamWithSchemaDir(t *testing.T, input string, query string, inputS
 			return
 		}
 
-		if schemaSet == nil || schemaSet.ByPath["input"] == nil {
-			err = fmt.Errorf("Expected exactly 1 default input schema: %v", inputSchema)
+		if schemaSet == nil || schemaSet.ByPath["input"] == nil || schemaSet.ByPath["schemas.kubernetes.data-schema"] == nil {
+			err = fmt.Errorf("Expected exactly 2 schemas in schemaSet but got: %v", schemaSet)
 			return
 		}
 	})

@@ -2666,7 +2666,7 @@ func TestGetAnnotation(t *testing.T) {
 
 	tests := []struct {
 		note              string
-		testModule        string
+		module            string
 		expNumComments    int
 		expNumAnnotations int
 		expAnnotations    []*SchemaAnnotation
@@ -2674,7 +2674,7 @@ func TestGetAnnotation(t *testing.T) {
 	}{
 		{
 			note: "Single valid annotation",
-			testModule: `
+			module: `
 			package opa.examples
 		
 			import data.servers
@@ -2694,7 +2694,7 @@ func TestGetAnnotation(t *testing.T) {
 		},
 		{
 			note: "Multiple annotations on a single line",
-			testModule: `
+			module: `
 			package opa.examples
 		
 			import data.servers
@@ -2714,7 +2714,7 @@ func TestGetAnnotation(t *testing.T) {
 		},
 		{
 			note: "Multiple annotations on a multiple lines",
-			testModule: `
+			module: `
 			package opa.examples
 		
 			import data.servers
@@ -2735,7 +2735,7 @@ func TestGetAnnotation(t *testing.T) {
 		},
 		{
 			note: "Ill-structured (valid) annotation",
-			testModule: `
+			module: `
 			package opa.examples
 		
 			import data.servers
@@ -2755,7 +2755,7 @@ func TestGetAnnotation(t *testing.T) {
 		},
 		{
 			note: "Ill-structured (invalid) annotation",
-			testModule: `
+			module: `
 			package opa.examples
 		
 			import data.servers
@@ -2778,7 +2778,7 @@ func TestGetAnnotation(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.note, func(t *testing.T) {
-			mod, err := ParseModule("test.rego", tc.testModule)
+			mod, err := ParseModule("test.rego", tc.module)
 			if err != nil {
 				if tc.expError == "" || !strings.Contains(err.Error(), tc.expError) {
 					t.Fatalf("Unexpected parse error when getting annotations: %v", err)
@@ -2790,7 +2790,7 @@ func TestGetAnnotation(t *testing.T) {
 				t.Errorf("Expected %v comments but got %v", tc.expNumComments, len(mod.Comments))
 			}
 
-			annotations := mod.Rules[0].Annotation
+			annotations := mod.Rules[0].Annotations
 			if len(annotations) != tc.expNumAnnotations {
 				t.Errorf("Expected %v annotations but got %v", tc.expNumAnnotations, len(annotations))
 			}

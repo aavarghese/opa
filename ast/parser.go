@@ -79,8 +79,7 @@ func (p *Parser) WithReader(r io.Reader) *Parser {
 
 const schemaAnnot = "@rulesSchema="
 
-// getAnnotation
-// MV - Returns a comment appearing at that line if any
+// getAnnotation returns a comment appearing at that line if any
 func (p *Parser) getAnnotation(line int) ([]*SchemaAnnotation, error) {
 	for _, comment := range p.s.comments {
 		if comment.Location.Row == line {
@@ -167,7 +166,7 @@ func (p *Parser) Parse() ([]Statement, []*Comment, Errors) {
 					p.error(rules[i].Location, err.Error())
 				}
 				if annot != nil {
-					rules[i].Annotation = annot
+					rules[i].Annotations = annot
 				}
 			}
 			continue
