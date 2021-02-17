@@ -2789,7 +2789,7 @@ func TestGetAnnotation(t *testing.T) {
 				t.Errorf("Expected %v annotations but got %v", len(tc.expAnnotations), len(annotations))
 			}
 
-			if !reflect.DeepEqual(&tc.expAnnotations, annotations) {
+			if !reflect.DeepEqual(tc.expAnnotations, annotations) {
 				t.Errorf("Expected %v annotations but got %v", tc.expAnnotations, annotations)
 			}
 		})
