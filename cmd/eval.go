@@ -559,6 +559,8 @@ func readSchemaBytes(params evalCommandParams) (*ast.SchemaSet, error) {
 			}
 
 			return &ast.SchemaSet{ByPath: map[string]interface{}{"input": schema}}, nil
+		} else if err != nil {
+			return nil, err
 		}
 
 		//contains a directory of input and data json schema files
@@ -582,7 +584,7 @@ func readSchemaBytes(params evalCommandParams) (*ast.SchemaSet, error) {
 				}
 				err = util.Unmarshal(schemaBytes, &schema)
 				if err != nil {
-					return fmt.Errorf("unable to unmarshal schema: %s", err.Error())
+					return fmt.Errorf("unable to unmarshal schema: %s", err)
 				}
 
 				if info.Name() == defaultInputSchemaFileName {
