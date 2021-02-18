@@ -2662,6 +2662,140 @@ else = {
 	`), curElse.Head.Value.Location)
 }
 
+func TestGetAnnotation(t *testing.T) {
+
+	tests := []struct {
+		note           string
+		module         string
+		expNumComments int
+		expAnnotations []Annotation
+		expError       string
+	}{
+		{
+			note: "Single valid annotation",
+			module: `
+			package opa.examples
+		
+			import data.servers
+			import data.networks
+			import data.ports
+		
+			#Schema annotation for this rule referencing three schemas
+			#@rulesSchema=data.servers:schemas.servers
+			public_servers[server] {
+				server = servers[i]; server.ports[j] = ports[k].id
+				ports[k].networks[l] = networks[m].id;
+				networks[m].public = true
+			}`,
+			expNumComments: 2,
+			expAnnotations: append(make([]Annotation, 0), SchemaAnnotation{Name: "data.servers", Schema: "schemas.servers"}),
+		},
+		{
+			note: "Multiple annotations on a single line",
+			module: `
+			package opa.examples
+		
+			import data.servers
+			import data.networks
+			import data.ports
+		
+			#Schema annotation for this rule referencing three schemas
+			#@rulesSchema=data.servers:schemas.servers,data.networks:schemas.networks,data.ports:schemas.ports
+			public_servers[server] {
+				server = servers[i]; server.ports[j] = ports[k].id
+				ports[k].networks[l] = networks[m].id;
+				networks[m].public = true
+			}`,
+			expNumComments: 2,
+			expAnnotations: append(make([]Annotation, 0), SchemaAnnotation{Name: "data.servers", Schema: "schemas.servers"}, SchemaAnnotation{Name: "data.networks", Schema: "schemas.networks"}, SchemaAnnotation{Name: "data.ports", Schema: "schemas.ports"}),
+		},
+		{
+			note: "Multiple annotations on a multiple lines",
+			module: `
+			package opa.examples
+		
+			import data.servers
+			import data.networks
+			import data.ports
+		
+			#Schema annotation for this rule referencing three schemas
+			#@rulesSchema=data.servers:schemas.servers
+			#@rulesSchema=data.networks:schemas.networks,data.ports:schemas.ports
+			public_servers[server] {
+				server = servers[i]; server.ports[j] = ports[k].id
+				ports[k].networks[l] = networks[m].id;
+				networks[m].public = true
+			}`,
+			expNumComments: 3,
+			expAnnotations: append(make([]Annotation, 0), SchemaAnnotation{Name: "data.networks", Schema: "schemas.networks"}, SchemaAnnotation{Name: "data.ports", Schema: "schemas.ports"}),
+		},
+		{
+			note: "Ill-structured (valid) annotation",
+			module: `
+			package opa.examples
+		
+			import data.servers
+			import data.networks
+			import data.ports
+		
+			#Schema annotation for this rule referencing three schemas
+			#@rulesSchema=data/servers:schemas/servers
+			public_servers[server] {
+				server = servers[i]; server.ports[j] = ports[k].id
+				ports[k].networks[l] = networks[m].id;
+				networks[m].public = true
+			}`,
+			expNumComments: 2,
+			expAnnotations: append(make([]Annotation, 0), SchemaAnnotation{Name: "data/servers", Schema: "schemas/servers"}),
+		},
+		{
+			note: "Ill-structured (invalid) annotation",
+			module: `
+			package opa.examples
+		
+			import data.servers
+			import data.networks
+			import data.ports
+		
+			#Schema annotation for this rule referencing three schemas
+			#@rulesSchema=data.servers=schemas
+			public_servers[server] {
+				server = servers[i]; server.ports[j] = ports[k].id
+				ports[k].networks[l] = networks[m].id;
+				networks[m].public = true
+			}`,
+			expNumComments: 2,
+			expAnnotations: nil,
+			expError:       "Invalid schema annotation:",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.note, func(t *testing.T) {
+			mod, err := ParseModule("test.rego", tc.module)
+			if err != nil {
+				if tc.expError == "" || !strings.Contains(err.Error(), tc.expError) {
+					t.Fatalf("Unexpected parse error when getting annotations: %v", err)
+				}
+				return
+			}
+
+			if len(mod.Comments) != tc.expNumComments {
+				t.Errorf("Expected %v comments but got %v", tc.expNumComments, len(mod.Comments))
+			}
+
+			annotations := mod.Rules[0].Annotations
+			if len(annotations) != len(tc.expAnnotations) {
+				t.Errorf("Expected %v annotations but got %v", len(tc.expAnnotations), len(annotations))
+			}
+
+			if !reflect.DeepEqual(tc.expAnnotations, annotations) {
+				t.Errorf("Expected %v annotations but got %v", tc.expAnnotations, annotations)
+			}
+		})
+	}
+}
+
 func assertLocationText(t *testing.T, expected string, actual *Location) {
 	t.Helper()
 	if actual == nil || actual.Text == nil {

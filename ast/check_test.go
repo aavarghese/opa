@@ -1215,3 +1215,321 @@ func newTestEnv(rs []string) *TypeEnv {
 
 	return env
 }
+
+const inputSchema = `{
+	"$schema": "http://json-schema.org/draft-07/schema",
+	"$id": "http://example.com/example.json",
+	"type": "object",
+	"title": "The root schema",
+	"description": "The root schema comprises the entire JSON document.",
+	"default": {},
+	"examples": [
+		{
+			"user": "alice",
+			"operation": "write"
+		}
+	],
+	"required": [
+		"user",
+		"operation"
+	],
+	"properties": {
+		"user": {
+			"$id": "#/properties/user",
+			"type": "string",
+			"title": "The user schema",
+			"description": "An explanation about the purpose of this instance.",
+			"default": "",
+			"examples": [
+				"alice"
+			]
+		},
+		"operation": {
+			"$id": "#/properties/operation",
+			"type": "string",
+			"title": "The operation schema",
+			"description": "An explanation about the purpose of this instance.",
+			"default": "",
+			"examples": [
+				"write"
+			]
+		}
+	},
+	"additionalProperties": true
+}`
+
+const inputSchema2 = `{
+    "$schema": "http://json-schema.org/draft-07/schema",
+    "$id": "http://example.com/example.json",
+    "type": "object",
+    "title": "The root schema",
+    "description": "The root schema comprises the entire JSON document.",
+    "default": {},
+    "examples": [
+        {
+            "operation": "read"
+        }
+    ],
+    "required": [
+        "operation"
+    ],
+    "properties": {
+        "operation": {
+            "$id": "#/properties/operation",
+            "type": "string",
+            "title": "The operation schema",
+            "description": "An explanation about the purpose of this instance.",
+            "default": "",
+            "examples": [
+                "read"
+            ]
+        }
+    },
+    "additionalProperties": true
+}`
+
+const dataSchema = `{
+    "$schema": "http://json-schema.org/draft-07/schema",
+    "$id": "http://example.com/example.json",
+    "type": "object",
+    "title": "The root schema",
+    "description": "The root schema comprises the entire JSON document.",
+    "default": {},
+    "examples": [
+        {
+            "alice": [
+                "read",
+                "write"
+            ],
+            "bob": [
+                "read"
+            ]
+        }
+    ],
+    "required": [
+        "alice",
+        "bob"
+    ],
+    "properties": {
+        "alice": {
+            "$id": "#/properties/alice",
+            "type": "array",
+            "title": "The alice schema",
+            "description": "An explanation about the purpose of this instance.",
+            "default": [],
+            "examples": [
+                [
+                    "read",
+                    "write"
+                ]
+            ],
+            "additionalItems": false,
+            "items": {
+                "$id": "#/properties/alice/items",
+                "type": "string",
+                "title": "The items schema",
+                "description": "An explanation about the purpose of this instance.",
+                "default": "",
+                "examples": [
+                    [
+                        "read",
+                        "write"
+                    ]
+                ]
+            }
+        },
+        "bob": {
+            "$id": "#/properties/bob",
+            "type": "array",
+            "title": "The bob schema",
+            "description": "An explanation about the purpose of this instance.",
+            "default": [],
+            "examples": [
+                [
+                    "read"
+                ]
+            ],
+            "additionalItems": false,
+            "items": {
+                "$id": "#/properties/bob/items",
+                "type": "string",
+                "title": "The items schema",
+                "description": "An explanation about the purpose of this instance.",
+                "default": "",
+                "examples": [
+                    [
+                        "read"
+                    ]
+                ]
+            }
+        }
+    },
+    "additionalProperties": true
+}`
+
+func TestCheckAnnotationRules(t *testing.T) {
+
+	var ischema interface{}
+	_ = util.Unmarshal([]byte(inputSchema), &ischema)
+
+	var ischema2 interface{}
+	_ = util.Unmarshal([]byte(inputSchema2), &ischema2)
+
+	var dschema interface{}
+	_ = util.Unmarshal([]byte(dataSchema), &dschema)
+
+	module1 := `
+	package policy
+
+	import data.acl
+	import input
+
+	default allow = false
+
+	#@rulesSchema=input:default-input-schema,data.acl:schemas.acl-schema
+	allow {
+			access = data.acl[input.user]
+			access[_] == input.operation
+	}`
+
+	module2 := `
+	package policy
+
+	import data.acl
+	import input
+
+	default allow = false
+
+	#@rulesSchema=input:default-input-schema,input:schemas.whocan-input-schema,data.acl:schemas.acl-schema
+	whocan[user] {
+			access = acl[user]
+			access[_] == input.operation
+	}`
+
+	module3 := `
+	package policy
+
+	import data.acl
+	import input
+
+	default allow = false
+
+	#@rulesSchema=input:default-input-schema,input:schemas.whocan-input-schema,data.acl:schemas.acl-schema
+	allow {
+		access = data.acl[input.user]
+		access[_] == input.operation
+	}`
+
+	module4 := `
+	package policy
+
+	import data.acl
+	import input
+
+	default allow = false
+
+	#@rulesSchema=input:schemas.badpath
+	whocan[user] {
+			access = acl[user]
+			access[_] == input.operation
+	}`
+
+	module5 := `
+	package policy
+
+	import data.acl
+	import input
+
+	default allow = false
+
+	#@rulesSchema=badref:schemas.whocan-input-schema
+	whocan[user] {
+			access = acl[user]
+			access[_] == input.operation
+	}`
+
+	module6 := `
+	package policy
+
+	import data.acl
+	import input
+
+	default allow = false
+
+	#@rulesSchema=data/acl:schemas/acl-schema
+	whocan[user] {
+			access = acl[user]
+			access[_] == input.operation
+	}`
+
+	module7 := `
+	package policy
+
+	import data.acl
+	import input
+
+	default allow = false
+
+	#@rulesSchema=input=schemas.whocan-input-schema
+	whocan[user] {
+			access = acl[user]
+			access[_] == input.operation
+	}`
+
+	schemaSet := &SchemaSet{ByPath: map[string]interface{}{
+		"default-input-schema":        ischema,
+		"schemas.whocan-input-schema": ischema2,
+		"schemas.acl-schema":          dschema,
+	}}
+
+	tests := map[string]struct {
+		module    string
+		schemaSet *SchemaSet
+		treesize  int
+		err       string
+	}{
+		"data and input annotations":              {module: module1, schemaSet: schemaSet, treesize: 2},
+		"correct data override":                   {module: module2, schemaSet: schemaSet, treesize: 2},
+		"incorrect data override":                 {module: module3, schemaSet: schemaSet, err: "undefined ref"},
+		"schema not exist in annotation path":     {module: module4, schemaSet: schemaSet, err: "Schema does not exist for given path in annotation"},
+		"non ref in annotation":                   {module: module5, schemaSet: schemaSet, err: "expected ref but got"},
+		"Ill-structured annotation with bad path": {module: module6, schemaSet: schemaSet, err: "Schema does not exist for given path in annotation"},
+		"Ill-structured (invalid) annotation":     {module: module7, schemaSet: schemaSet, err: "Invalid schema annotation"},
+		"empty schema set":                        {module: module1, schemaSet: nil, err: "Schemas need to be supplied for the annotation"},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			mod, err := ParseModule("test.rego", tc.module)
+			if err != nil {
+				if !strings.Contains(err.Error(), tc.err) {
+					t.Fatalf("Unexpected parse module error when processing annotations: %v", err)
+				}
+				return
+			}
+
+			var elems []util.T
+			for _, rule := range mod.Rules {
+				elems = append(elems, rule)
+				for next := rule.Else; next != nil; next = next.Else {
+					next.Module = mod
+					elems = append(elems, next)
+				}
+			}
+
+			typeenv, errors := newTypeChecker().CheckTypes(newTypeChecker().checkLanguageBuiltins(nil, BuiltinMap).WithSchemas(tc.schemaSet), elems)
+			if len(errors) > 0 {
+				for _, e := range errors {
+					if tc.err == "" || !strings.Contains(e.Error(), tc.err) {
+						t.Fatalf("Unexpected check rule error when processing annotations: %v", e)
+					}
+				}
+				return
+			}
+
+			if typeenv.tree.children.Len() != tc.treesize {
+				t.Fatalf("Expected %v number of elements in typeenv but got: %v", tc.treesize, typeenv.tree.children.Len())
+			}
+		})
+	}
+}

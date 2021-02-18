@@ -11,6 +11,7 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 
@@ -123,6 +124,8 @@ const (
 	defaultProfileLimit = 10
 
 	defaultPrettyLimit = 80
+
+	defaultInputSchemaFileName = "default-input-schema.json"
 )
 
 type regoError struct{}
@@ -205,9 +208,12 @@ Set the output format with the --format flag.
 Schema
 ------
 
-The -s/--schema flag provides a single JSON Schema used to validate references to the input document.
+The -s/--schema flag provides one or more JSON Schemas used to validate references to the input or data documents.
+Loads a single JSON file, applying it to the input document; or all the schema files under the specified directory.
+When a directory is passed, the schema file for input must be named 'default-input-schema.json'.
 
-	$ opa eval --data policy.rego --input input.json --schema input-schema.json
+	$ opa eval --data policy.rego --input input.json --schema schema.json
+	$ opa eval --data policy.rego --input input.json --schema schemas/
 `,
 
 		PreRunE: func(cmd *cobra.Command, args []string) error {
@@ -426,20 +432,15 @@ func setupEval(args []string, params evalCommandParams) (*evalContext, error) {
 		regoArgs = append(regoArgs, rego.ParsedInput(inputValue))
 	}
 
-	schemaBytes, err := readSchemaBytes(params)
+	/*
+		-s {file} (one input schema file)
+		-s {directory} (one schema directory with an default-input-schema.json schema file plus other optional input and data schema files)
+	*/
+	schemaSet, err := readSchemaBytes(params)
 	if err != nil {
 		return nil, err
 	}
-
-	if schemaBytes != nil {
-		var schema interface{}
-		err := util.Unmarshal(schemaBytes, &schema)
-		if err != nil {
-			return nil, fmt.Errorf("unable to parse schema: %s", err.Error())
-		}
-		schemaSet := &ast.SchemaSet{ByPath: map[string]interface{}{"input": schema}}
-		regoArgs = append(regoArgs, rego.Schemas(schemaSet))
-	}
+	regoArgs = append(regoArgs, rego.Schemas(schemaSet))
 
 	var tracer *topdown.BufferTracer
 
@@ -538,13 +539,69 @@ func readInputBytes(params evalCommandParams) ([]byte, error) {
 	return nil, nil
 }
 
-func readSchemaBytes(params evalCommandParams) ([]byte, error) {
+func readSchemaBytes(params evalCommandParams) (*ast.SchemaSet, error) {
 	if params.schemaPath != "" {
+		var schema interface{}
 		path, err := fileurl.Clean(params.schemaPath)
 		if err != nil {
 			return nil, err
 		}
-		return ioutil.ReadFile(path)
+
+		if info, err := os.Stat(path); err == nil && !info.IsDir() { //contains a single input schema file
+			schemaBytes, err := ioutil.ReadFile(path)
+			if err != nil {
+				return nil, err
+			}
+
+			err = util.Unmarshal(schemaBytes, &schema)
+			if err != nil {
+				return nil, fmt.Errorf("unable to unmarshal schema: %s", err.Error())
+			}
+
+			return &ast.SchemaSet{ByPath: map[string]interface{}{"input": schema}}, nil
+		} else if err != nil {
+			return nil, err
+		}
+
+		//contains a directory of input and data json schema files
+		schemaSet := make(map[string]interface{})
+		parentDir := filepath.Base(path)
+
+		err = filepath.Walk(path,
+			func(path string, info os.FileInfo, err error) error {
+				if err != nil {
+					return fmt.Errorf("error in walking file path: %w", err)
+				}
+
+				if info.IsDir() { // ignoring directories
+					return nil
+				}
+
+				// proceed knowing it's a file
+				schemaBytes, err := ioutil.ReadFile(path)
+				if err != nil {
+					return err
+				}
+				err = util.Unmarshal(schemaBytes, &schema)
+				if err != nil {
+					return fmt.Errorf("unable to unmarshal schema: %s", err)
+				}
+
+				if info.Name() == defaultInputSchemaFileName {
+					schemaSet["input"] = schema
+				} else {
+					subDirs := strings.SplitAfterN(filepath.Dir(path), parentDir, 2)[1] //get rest of the path after main schema directory
+					fileNameNoExt := strings.TrimSuffix(info.Name(), filepath.Ext(info.Name()))
+					relPath := strings.ReplaceAll(filepath.Join(parentDir, subDirs, fileNameNoExt), "/", ".")
+					schemaSet[relPath] = schema
+				}
+				return nil
+			})
+		if err != nil {
+			return nil, err
+		}
+		return &ast.SchemaSet{ByPath: schemaSet}, nil
+
 	}
 	return nil, nil
 }

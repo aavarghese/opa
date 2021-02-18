@@ -273,7 +273,36 @@ func testEvalWithInvalidSchemaFile(t *testing.T, input string, query string, sch
 	return err
 }
 
-func TestEvalWithJSONSchemaFile(t *testing.T) {
+func testReadParamWithSchemaDir(t *testing.T, input string, query string, inputSchema string) error {
+	files := map[string]string{
+		"input.json":                          input,
+		"schemas/default-input-schema.json":   inputSchema,
+		"schemas/kubernetes/data-schema.json": inputSchema,
+	}
+
+	var err error
+	test.WithTempFS(files, func(path string) {
+
+		params := newEvalCommandParams()
+		params.inputPath = filepath.Join(path, "input.json")
+		params.schemaPath = filepath.Join(path, "schemas")
+
+		schemaSet, err := readSchemaBytes(params)
+		if err != nil {
+			err = fmt.Errorf("Unexpected error or undefined from evaluation: %v", err)
+			return
+		}
+
+		if schemaSet == nil || schemaSet.ByPath["input"] == nil || schemaSet.ByPath["schemas.kubernetes.data-schema"] == nil {
+			err = fmt.Errorf("Expected exactly 2 schemas in schemaSet but got: %v", schemaSet)
+			return
+		}
+	})
+
+	return err
+}
+
+func TestEvalWithJSONSchema(t *testing.T) {
 
 	input := `{
 		"foo": "a",
@@ -355,6 +384,11 @@ func TestEvalWithJSONSchemaFile(t *testing.T) {
 
 	query := "input.b[0].a == 1"
 	err := testEvalWithSchemaFile(t, input, query, schema)
+	if err != nil {
+		t.Fatalf("unexpected error: %s", err)
+	}
+
+	err = testReadParamWithSchemaDir(t, input, query, schema)
 	if err != nil {
 		t.Fatalf("unexpected error: %s", err)
 	}

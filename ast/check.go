@@ -146,7 +146,115 @@ func (tc *typeChecker) checkLanguageBuiltins(env *TypeEnv, builtins map[string]*
 	return env
 }
 
+func override(ref Ref, t types.Type, o types.Type, rule *Rule) (types.Type, *Error) {
+	newStaticProps := []*types.StaticProperty{}
+	obj, ok := t.(*types.Object)
+	found := false
+	if ok {
+		staticProps := obj.StaticProperties()
+		for _, prop := range staticProps {
+			value, err := InterfaceToValue(prop.Key)
+			if err != nil {
+				return nil, NewError(TypeErr, rule.Location, "error value from interface: %s", err.Error())
+			}
+			if len(ref) > 0 && ref[0].Value.Compare(value) == 0 {
+				found = true
+				if len(ref) == 1 {
+					prop.Value = o
+				} else {
+					newVal, err := override(ref[1:], prop.Value, o, rule)
+					if err != nil {
+						return nil, err
+					}
+					prop.Value = newVal
+				}
+			}
+			newStaticProps = append(newStaticProps, types.NewStaticProperty(prop.Key, prop.Value))
+		}
+	}
+
+	// ref[0] is not a top-level key in staticProps, so it must be added
+	if !found || !ok {
+		keys, err := getKeys(ref, rule)
+		if err != nil {
+			return nil, err
+		}
+		newStaticProps = append(newStaticProps, types.NewStaticProperty(keys[0], getType(keys, o)))
+	}
+	return types.NewObject(newStaticProps, nil), nil
+}
+
+func getKeys(ref Ref, rule *Rule) ([]interface{}, *Error) {
+	keys := []interface{}{}
+	for _, refElem := range ref {
+		key, err := JSON(refElem.Value)
+		if err != nil {
+			return nil, NewError(TypeErr, rule.Location, "error getting key from value: %s", err.Error())
+		}
+		keys = append(keys, key)
+	}
+	return keys, nil
+}
+
+func getType(keys []interface{}, o types.Type) types.Type {
+	if len(keys) == 1 {
+		return o
+	}
+	staticProps := []*types.StaticProperty{types.NewStaticProperty(keys[1], getType(keys[1:], o))}
+	return types.NewObject(staticProps, nil)
+}
+
+// Annotations must immediately precede the rule definition and are of the form: #@rulesSchema=<expr>:<schema-key>
+func (tc *typeChecker) processAnnotation(annot SchemaAnnotation, env *TypeEnv, rule *Rule) (Ref, types.Type, *Error) {
+	if env.schemaSet == nil || env.schemaSet.ByPath == nil {
+		return nil, nil, NewError(TypeErr, rule.Location, "Schemas need to be supplied for the annotation: %s", annot.Schema)
+	}
+	schema, ok := env.schemaSet.ByPath[annot.Schema]
+	if !ok {
+		return nil, nil, NewError(TypeErr, rule.Location, "Schema does not exist for given path in annotation: %s", annot.Schema)
+	}
+	newType, err := setTypesWithSchema(schema)
+	if err != nil {
+		return nil, nil, NewError(TypeErr, rule.Location, err.Error())
+	}
+	ref, err := ParseRef(annot.Name)
+	if err != nil {
+		return nil, nil, NewError(TypeErr, rule.Location, err.Error())
+	}
+
+	return ref, newType, nil
+}
+
 func (tc *typeChecker) checkRule(env *TypeEnv, rule *Rule) {
+	if rule.Annotations != nil {
+		errors := []*Error{}
+		for _, annot := range rule.Annotations {
+			schemaAnnot, ok := annot.(SchemaAnnotation)
+			if !ok {
+				errors = append(errors, NewError(TypeErr, rule.Location, "not a schema annotation"))
+				continue
+			}
+			ref, refType, err := tc.processAnnotation(schemaAnnot, env, rule)
+			if err != nil {
+				errors = append(errors, err)
+				continue
+			}
+			prefixRef, t := env.GetExistingPrefix(ref)
+			if t == nil || prefixRef.Equal(ref) {
+				env.tree.Put(ref, refType)
+				defer env.tree.DeleteKey(ref)
+			} else {
+				newType, err := override(ref[len(prefixRef):], t, refType, rule)
+				if err != nil {
+					errors = append(errors, err)
+					continue
+				}
+				env.tree.Put(prefixRef, newType)
+				defer env.tree.Put(prefixRef, t)
+			}
+		}
+		tc.err(errors)
+	}
 
 	cpy, err := tc.CheckBody(env, rule.Body)
 

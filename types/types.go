@@ -311,6 +311,11 @@ func (t *Object) DynamicValue() Type {
 	return t.dynamic.Value
 }
 
+// StaticProperties returns the type of the object's static elements.
+func (t *Object) StaticProperties() []*StaticProperty {
+	return t.static
+}
+
 // Keys returns the keys of the object's static elements.
 func (t *Object) Keys() []interface{} {
 	sl := make([]interface{}, 0, len(t.static))
