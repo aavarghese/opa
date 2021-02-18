@@ -146,6 +146,7 @@ func (tc *typeChecker) checkLanguageBuiltins(env *TypeEnv, builtins map[string]*
 	return env
 }
 
+// override takes a type t and returns a type obtained from t where the path represented by ref within it has type o (overriding the original type of that path)
 func override(ref Ref, t types.Type, o types.Type, rule *Rule) (types.Type, *Error) {
 	newStaticProps := []*types.StaticProperty{}
 	obj, ok := t.(*types.Object)
@@ -155,7 +156,7 @@ func override(ref Ref, t types.Type, o types.Type, rule *Rule) (types.Type, *Err
 		for _, prop := range staticProps {
 			value, err := InterfaceToValue(prop.Key)
 			if err != nil {
-				return nil, NewError(TypeErr, rule.Location, "error value from interface: %s", err.Error())
+				return nil, NewError(TypeErr, rule.Location, "unexpected error in override: %s", err.Error())
 			}
 			if len(ref) > 0 && ref[0].Value.Compare(value) == 0 {
 				found = true
@@ -173,7 +174,7 @@ func override(ref Ref, t types.Type, o types.Type, rule *Rule) (types.Type, *Err
 		}
 	}
 
-	// ref[0] is not a top-level key in staticProps, so it must be added
+	// ref[0] is not a top-level key in staticProps, so it must be added, or type to override is not an object
 	if !found || !ok {
 		keys, err := getKeys(ref, rule)
 		if err != nil {
@@ -227,16 +228,15 @@ func (tc *typeChecker) processAnnotation(annot SchemaAnnotation, env *TypeEnv, r
 
 func (tc *typeChecker) checkRule(env *TypeEnv, rule *Rule) {
 	if rule.Annotations != nil {
-		errors := []*Error{}
 		for _, annot := range rule.Annotations {
 			schemaAnnot, ok := annot.(SchemaAnnotation)
 			if !ok {
-				errors = append(errors, NewError(TypeErr, rule.Location, "not a schema annotation"))
+				tc.err([]*Error{NewError(TypeErr, rule.Location, "not a schema annotation")})
 				continue
 			}
 			ref, refType, err := tc.processAnnotation(schemaAnnot, env, rule)
 			if err != nil {
-				errors = append(errors, err)
+				tc.err([]*Error{err})
 				continue
 			}
 			prefixRef, t := env.GetExistingPrefix(ref)
@@ -246,14 +246,13 @@ func (tc *typeChecker) checkRule(env *TypeEnv, rule *Rule) {
 			} else {
 				newType, err := override(ref[len(prefixRef):], t, refType, rule)
 				if err != nil {
-					errors = append(errors, err)
+					tc.err([]*Error{err})
 					continue
 				}
 				env.tree.Put(prefixRef, newType)
 				defer env.tree.Put(prefixRef, t)
 			}
 		}
-		tc.err(errors)
 	}
 
 	cpy, err := tc.CheckBody(env, rule.Body)

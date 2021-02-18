@@ -1476,6 +1476,94 @@ func TestCheckAnnotationRules(t *testing.T) {
 			access[_] == input.operation
 	}`
 
+	module8 := `
+	package policy
+
+	import data.acl
+	import input
+
+	default allow = false
+
+	#@rulesSchema=input:default-input-schema,data.acl:schemas.acl-schema,input.apple.orange:default-input-schema
+	allow {
+			access = data.acl[input.user]
+			access[_] == input.operation
+			input.apple.banana
+	}`
+
+	module9 := `
+	package policy
+
+	import data.acl
+	import input
+
+	default allow = false
+
+	#@rulesSchema=input:default-input-schema,data.acl:schemas.acl-schema,input.apple.orange:default-input-schema,input.apple.orange.banana:schemas.acl-schema
+	allow {
+			access = data.acl[input.user]
+			access[_] == input.operation
+			input.apple.orange.banana
+	}`
+
+	module10 := `
+	package policy
+
+	import data.acl
+	import input
+
+	default allow = false
+
+	#@rulesSchema=input:default-input-schema,input.apple.orange:default-input-schema,input.apple.orange.banana:schemas.acl-schema
+	allow {
+			access = data.acl[input.user]
+			access[_] == input.operation
+			input.apple.orange.banana.fruit
+	}`
+
+	module11 := `
+	package policy
+
+	import data.acl
+	import input
+
+	default allow = false
+
+	#@rulesSchema=input:default-input-schema,input.apple.orange:default-input-schema,input.apple.orange:schemas.acl-schema
+	allow {
+			access = data.acl[input.user]
+			access[_] == input.operation
+			input.apple.orange.bob
+			input.apple.orange.user
+	}`
+
+	module12 := `
+	package policy
+
+	import data.acl
+	import input
+
+	default allow = false
+
+	#@rulesSchema=input:default-input-schema,input:schemas.acl-schema
+	allow {
+			access = data.acl[input.user]
+	}`
+
+	module13 := `
+	package policy
+
+	import data.acl
+	import input
+
+	default allow = false
+
+	#@rulesSchema=input:default-input-schema,input.apple["orange"]:default-input-schema
+	allow {
+			access = data.acl[input.user]
+			input.apple.orange.fruit
+	}`
+
 	schemaSet := &SchemaSet{ByPath: map[string]interface{}{
 		"default-input-schema":        ischema,
 		"schemas.whocan-input-schema": ischema2,
@@ -1488,14 +1576,20 @@ func TestCheckAnnotationRules(t *testing.T) {
 		treesize  int
 		err       string
 	}{
-		"data and input annotations":              {module: module1, schemaSet: schemaSet, treesize: 2},
-		"correct data override":                   {module: module2, schemaSet: schemaSet, treesize: 2},
-		"incorrect data override":                 {module: module3, schemaSet: schemaSet, err: "undefined ref"},
-		"schema not exist in annotation path":     {module: module4, schemaSet: schemaSet, err: "Schema does not exist for given path in annotation"},
-		"non ref in annotation":                   {module: module5, schemaSet: schemaSet, err: "expected ref but got"},
-		"Ill-structured annotation with bad path": {module: module6, schemaSet: schemaSet, err: "Schema does not exist for given path in annotation"},
-		"Ill-structured (invalid) annotation":     {module: module7, schemaSet: schemaSet, err: "Invalid schema annotation"},
-		"empty schema set":                        {module: module1, schemaSet: nil, err: "Schemas need to be supplied for the annotation"},
+		"data and input annotations":                                                      {module: module1, schemaSet: schemaSet, treesize: 2},
+		"correct data override":                                                           {module: module2, schemaSet: schemaSet, treesize: 2},
+		"incorrect data override":                                                         {module: module3, schemaSet: schemaSet, err: "undefined ref"},
+		"schema not exist in annotation path":                                             {module: module4, schemaSet: schemaSet, err: "Schema does not exist for given path in annotation"},
+		"non ref in annotation":                                                           {module: module5, schemaSet: schemaSet, err: "expected ref but got"},
+		"Ill-structured annotation with bad path":                                         {module: module6, schemaSet: schemaSet, err: "Schema does not exist for given path in annotation"},
+		"Ill-structured (invalid) annotation":                                             {module: module7, schemaSet: schemaSet, err: "Invalid schema annotation"},
+		"empty schema set":                                                                {module: module1, schemaSet: nil, err: "Schemas need to be supplied for the annotation"},
+		"overriding ref with length greater than one and not existing":                    {module: module8, schemaSet: schemaSet, err: "undefined ref: input.apple.banana"},
+		"overriding ref with length greater than one and existing prefix":                 {module: module9, schemaSet: schemaSet, treesize: 2},
+		"overriding ref with length greater than one and existing prefix with type error": {module: module10, schemaSet: schemaSet, err: "undefined ref: input.apple.orange.banana.fruit"},
+		"overriding ref with length greater than one and existing ref":                    {module: module11, schemaSet: schemaSet, err: "undefined ref: input.apple.orange.user"},
+		"overriding ref of size one":                                                      {module: module12, schemaSet: schemaSet, err: "undefined ref: input.user"},
+		"overriding annotation written with brackets":                                     {module: module13, schemaSet: schemaSet, err: "undefined ref: input.apple.orange.fruit"},
 	}
 
 	for name, tc := range tests {
