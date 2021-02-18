@@ -2665,12 +2665,11 @@ else = {
 func TestGetAnnotation(t *testing.T) {
 
 	tests := []struct {
-		note              string
-		module            string
-		expNumComments    int
-		expNumAnnotations int
-		expAnnotations    []*SchemaAnnotation
-		expError          string
+		note           string
+		module         string
+		expNumComments int
+		expAnnotations []Annotation
+		expError       string
 	}{
 		{
 			note: "Single valid annotation",
@@ -2688,9 +2687,8 @@ func TestGetAnnotation(t *testing.T) {
 				ports[k].networks[l] = networks[m].id;
 				networks[m].public = true
 			}`,
-			expNumComments:    2,
-			expNumAnnotations: 1,
-			expAnnotations:    []*SchemaAnnotation{&SchemaAnnotation{Name: "data.servers", Schema: "schemas.servers"}},
+			expNumComments: 2,
+			expAnnotations: append(make([]Annotation, 0), SchemaAnnotation{Name: "data.servers", Schema: "schemas.servers"}),
 		},
 		{
 			note: "Multiple annotations on a single line",
@@ -2708,9 +2706,8 @@ func TestGetAnnotation(t *testing.T) {
 				ports[k].networks[l] = networks[m].id;
 				networks[m].public = true
 			}`,
-			expNumComments:    2,
-			expNumAnnotations: 3,
-			expAnnotations:    []*SchemaAnnotation{&SchemaAnnotation{Name: "data.servers", Schema: "schemas.servers"}, &SchemaAnnotation{Name: "data.networks", Schema: "schemas.networks"}, &SchemaAnnotation{Name: "data.ports", Schema: "schemas.ports"}},
+			expNumComments: 2,
+			expAnnotations: append(make([]Annotation, 0), SchemaAnnotation{Name: "data.servers", Schema: "schemas.servers"}, SchemaAnnotation{Name: "data.networks", Schema: "schemas.networks"}, SchemaAnnotation{Name: "data.ports", Schema: "schemas.ports"}),
 		},
 		{
 			note: "Multiple annotations on a multiple lines",
@@ -2729,9 +2726,8 @@ func TestGetAnnotation(t *testing.T) {
 				ports[k].networks[l] = networks[m].id;
 				networks[m].public = true
 			}`,
-			expNumComments:    3,
-			expNumAnnotations: 2,
-			expAnnotations:    []*SchemaAnnotation{&SchemaAnnotation{Name: "data.networks", Schema: "schemas.networks"}, &SchemaAnnotation{Name: "data.ports", Schema: "schemas.ports"}},
+			expNumComments: 3,
+			expAnnotations: append(make([]Annotation, 0), SchemaAnnotation{Name: "data.networks", Schema: "schemas.networks"}, SchemaAnnotation{Name: "data.ports", Schema: "schemas.ports"}),
 		},
 		{
 			note: "Ill-structured (valid) annotation",
@@ -2749,9 +2745,8 @@ func TestGetAnnotation(t *testing.T) {
 				ports[k].networks[l] = networks[m].id;
 				networks[m].public = true
 			}`,
-			expNumComments:    2,
-			expNumAnnotations: 1,
-			expAnnotations:    []*SchemaAnnotation{&SchemaAnnotation{Name: "data/servers", Schema: "schemas/servers"}},
+			expNumComments: 2,
+			expAnnotations: append(make([]Annotation, 0), SchemaAnnotation{Name: "data/servers", Schema: "schemas/servers"}),
 		},
 		{
 			note: "Ill-structured (invalid) annotation",
@@ -2769,10 +2764,9 @@ func TestGetAnnotation(t *testing.T) {
 				ports[k].networks[l] = networks[m].id;
 				networks[m].public = true
 			}`,
-			expNumComments:    2,
-			expNumAnnotations: 0,
-			expAnnotations:    nil,
-			expError:          "Invalid schema annotation:",
+			expNumComments: 2,
+			expAnnotations: nil,
+			expError:       "Invalid schema annotation:",
 		},
 	}
 
@@ -2791,8 +2785,8 @@ func TestGetAnnotation(t *testing.T) {
 			}
 
 			annotations := mod.Rules[0].Annotations
-			if len(annotations) != tc.expNumAnnotations {
-				t.Errorf("Expected %v annotations but got %v", tc.expNumAnnotations, len(annotations))
+			if len(annotations) != len(tc.expAnnotations) {
+				t.Errorf("Expected %v annotations but got %v", len(tc.expAnnotations), len(annotations))
 			}
 
 			if !reflect.DeepEqual(tc.expAnnotations, annotations) {

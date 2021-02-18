@@ -129,7 +129,7 @@ Notice that currently the annotation needs to appear on the line immediately pre
 
 Examples:
 
-Consider a directory named `schemas` with the following structure, uploaded via `opa eval --schema /Users/ansuvarghese/opa-schema-examples/kubernetes/schemas`
+Consider a directory named `schemas` with the following structure, provided via `opa eval --schema opa-schema-examples/kubernetes/schemas`
 
 ```$ tree schemas/
 schemas/

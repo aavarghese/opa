@@ -205,7 +205,7 @@ func getType(keys []interface{}, o types.Type) types.Type {
 }
 
 // Annotations must immediately precede the rule definition and are of the form: #@rulesSchema=<expr>:<schema-key>
-func (tc *typeChecker) processAnnotation(annot *SchemaAnnotation, env *TypeEnv, rule *Rule) (Ref, types.Type, *Error) {
+func (tc *typeChecker) processAnnotation(annot SchemaAnnotation, env *TypeEnv, rule *Rule) (Ref, types.Type, *Error) {
 	if env.schemaSet == nil || env.schemaSet.ByPath == nil {
 		return nil, nil, NewError(TypeErr, rule.Location, "Schemas need to be supplied for the annotation: %s", annot.Schema)
 	}
@@ -229,7 +229,12 @@ func (tc *typeChecker) checkRule(env *TypeEnv, rule *Rule) {
 	if rule.Annotations != nil {
 		errors := []*Error{}
 		for _, annot := range rule.Annotations {
-			ref, refType, err := tc.processAnnotation(annot, env, rule)
+			schemaAnnot, ok := annot.(SchemaAnnotation)
+			if !ok {
+				errors = append(errors, NewError(TypeErr, rule.Location, "not a schema annotation"))
+				continue
+			}
+			ref, refType, err := tc.processAnnotation(schemaAnnot, env, rule)
 			if err != nil {
 				errors = append(errors, err)
 				continue
