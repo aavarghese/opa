@@ -146,42 +146,62 @@ func (tc *typeChecker) checkLanguageBuiltins(env *TypeEnv, builtins map[string]*
 	return env
 }
 
-func getPrefixToOverride(name string, env *TypeEnv, rule *Rule) (string, types.Type, *Error) {
-	ref, err := ParseRef(name)
-	if err != nil {
-		return "", nil, NewError(TypeErr, rule.Location, err.Error())
+func override(ref Ref, t types.Type, o types.Type, rule *Rule) (types.Type, *Error) {
+	newStaticProps := []*types.StaticProperty{}
+	obj, ok := t.(*types.Object)
+	found := false
+	if ok {
+		staticProps := obj.StaticProperties()
+		for _, prop := range staticProps {
+			value, err := InterfaceToValue(prop.Key)
+			if err != nil {
+				return nil, NewError(TypeErr, rule.Location, "error value from interface: %s", err.Error())
+			}
+			if len(ref) > 0 && ref[0].Value.Compare(value) == 0 {
+				found = true
+				if len(ref) == 1 {
+					prop.Value = o
+				} else {
+					newVal, err := override(ref[1:], prop.Value, o, rule)
+					if err != nil {
+						return nil, err
+					}
+					prop.Value = newVal
+				}
+			}
+			newStaticProps = append(newStaticProps, types.NewStaticProperty(prop.Key, prop.Value))
+		}
 	}
-	t := env.tree.Get(ref)
-	if t != nil {
-		return name, t, nil
-	}
-	names := strings.Split(name, ".")
-	if len(names) > 1 {
-		prefix, t, err := getPrefixToOverride(strings.TrimSuffix(name, "."+names[len(names)-1]), env, rule)
+
+	// ref[0] is not a top-level key in staticProps, so it must be added
+	if !found || !ok {
+		keys, err := getKeys(ref, rule)
 		if err != nil {
-			return "", nil, err
+			return nil, err
 		}
-		if t != nil {
-			return prefix, t, nil
-		}
+		newStaticProps = append(newStaticProps, types.NewStaticProperty(keys[0], getType(keys, o)))
 	}
-	return "", nil, nil
+	return types.NewObject(newStaticProps, nil), nil
 }
 
-func override(names []string, t types.Type, o types.Type) types.Type {
-	obj := t.(*types.Object)
-	staticProps := obj.StaticProperties()
-	newStaticProps := []*types.StaticProperty{}
-
-	for _, prop := range staticProps {
-		if len(names) == 1 && names[0] == prop.Key.(string) {
-			prop.Value = o
-		} else if len(names) > 0 && names[0] == prop.Key.(string) {
-			prop.Value = override(names[1:], prop.Value, o)
+func getKeys(ref Ref, rule *Rule) ([]interface{}, *Error) {
+	keys := []interface{}{}
+	for _, refElem := range ref {
+		key, err := JSON(refElem.Value)
+		if err != nil {
+			return nil, NewError(TypeErr, rule.Location, "error getting key from value: %s", err.Error())
 		}
-		newStaticProps = append(newStaticProps, types.NewStaticProperty(prop.Key, prop.Value))
+		keys = append(keys, key)
 	}
-	return types.NewObject(newStaticProps, nil)
+	return keys, nil
+}
+
+func getType(keys []interface{}, o types.Type) types.Type {
+	if len(keys) == 1 {
+		return o
+	}
+	staticProps := []*types.StaticProperty{types.NewStaticProperty(keys[1], getType(keys[1:], o))}
+	return types.NewObject(staticProps, nil)
 }
 
 // Annotations must immediately precede the rule definition and are of the form: #@rulesSchema=<expr>:<schema-key>
@@ -214,25 +234,18 @@ func (tc *typeChecker) checkRule(env *TypeEnv, rule *Rule) {
 				errors = append(errors, err)
 				continue
 			}
-			prefixName, t, err := getPrefixToOverride(annot.Name, env, rule)
-			if err != nil {
-				errors = append(errors, err)
-				continue
-			}
-			if t == nil || prefixName == annot.Name {
+			prefixRef, t := env.GetExistingPrefix(ref)
+			if t == nil || prefixRef.Equal(ref) {
 				env.tree.Put(ref, refType)
 				defer env.tree.DeleteKey(ref)
 			} else {
-				refPrefix, err := ParseRef(prefixName)
+				newType, err := override(ref[len(prefixRef):], t, refType, rule)
 				if err != nil {
-					errors = append(errors, NewError(TypeErr, rule.Location, err.Error()))
+					errors = append(errors, err)
 					continue
 				}
-				name := strings.TrimPrefix(annot.Name, prefixName+".")
-				names := strings.Split(name, ".")
-				newType := override(names, t, refType)
-				env.tree.Put(refPrefix, newType)
-				defer env.tree.Put(refPrefix, t)
+				env.tree.Put(prefixRef, newType)
+				defer env.tree.Put(prefixRef, t)
 			}
 		}
 		tc.err(errors)
