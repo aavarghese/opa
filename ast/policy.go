@@ -130,6 +130,7 @@ type (
 		Location *Location
 	}
 
+	// Annotation contains code annotation
 	Annotation interface{ annotationMaker() }
 
 	// SchemaAnnotation contains information about a schema
