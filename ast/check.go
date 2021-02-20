@@ -225,11 +225,11 @@ func getObjectType(ref Ref, o types.Type, rule *Rule, d *types.DynamicProperty) 
 // Annotations must immediately precede the rule definition and are of the form: #@rulesSchema=<expr>:<schema-key>
 func (tc *typeChecker) processAnnotation(annot SchemaAnnotation, env *TypeEnv, rule *Rule) (Ref, types.Type, *Error) {
 	if env.schemaSet == nil || env.schemaSet.ByPath == nil {
-		return nil, nil, NewError(TypeErr, rule.Location, "Schemas need to be supplied for the annotation: %s", annot.Schema)
+		return nil, nil, NewError(TypeErr, rule.Location, "schemas need to be supplied for the annotation: %s", annot.Schema)
 	}
 	schema, ok := env.schemaSet.ByPath[annot.Schema]
 	if !ok {
-		return nil, nil, NewError(TypeErr, rule.Location, "Schema does not exist for given path in annotation: %s", annot.Schema)
+		return nil, nil, NewError(TypeErr, rule.Location, "schema does not exist for given path in annotation: %s", annot.Schema)
 	}
 	newType, err := setTypesWithSchema(schema)
 	if err != nil {
