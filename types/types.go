@@ -311,6 +311,11 @@ func (t *Object) DynamicValue() Type {
 	return t.dynamic.Value
 }
 
+// DynamicProperties returns the type of the object's dynamic elements.
+func (t *Object) DynamicProperties() *DynamicProperty {
+	return t.dynamic
+}
+
 // StaticProperties returns the type of the object's static elements.
 func (t *Object) StaticProperties() []*StaticProperty {
 	return t.static

@@ -1564,6 +1564,118 @@ func TestCheckAnnotationRules(t *testing.T) {
 			input.apple.orange.fruit
 	}`
 
+	module14 := `
+	package policy
+
+	import data.acl
+	import input
+
+	#@rulesSchema=input.request.object:schemas.acl-schema
+	deny[msg] {
+		input.request.kind.kind == "Pod"
+		image := input.request.object.spec.typo.containers[_].image
+		not startswith(image, "hooli.com/")
+	}`
+
+	module15 := `
+	package policy
+
+	import data.acl
+	import input
+
+	default allow = false
+
+	#@rulesSchema=data.acl:schemas.acl-schema
+	allow {
+			access = data.acl[input.user]
+			access[_] == input.operation
+			input.apple.orange.banana
+	}`
+
+	module16 := `
+	package policy
+
+	import data.acl
+	import input
+
+	#@rulesSchema=data.acl:schemas.acl-schema
+	deny[msg] {
+		input.request.kind.kinds == "Pod"
+		image := input.request.object.spec.containers[_].image
+		not startswith(image, "hooli.com/")
+		data.blah
+	}`
+
+	module17 := `
+	package policy
+
+	import data.acl
+	import input
+
+	default allow = false
+
+	#@rulesSchema=input:schemas.acl-schema
+	allow {
+			input.alice
+	}
+
+	deny[msg] {
+		input.foo
+	}`
+
+	module18 := `
+	package policy
+
+	import data.acl
+	import input
+
+	default allow = false
+
+	#@rulesSchema=data.acl:schemas.acl-schema,data.acl.foo:default-input-schema
+	allow {
+			access = data.acl[input.user]
+			access[_] == input.operation
+			input.apple.orange.banana
+	}
+
+	deny[msg] {
+		input.request.kind.kinds == "Pod"
+		image := input.request.object.spec.containers[_].image
+		not startswith(image, "hooli.com/")
+		data.acl.foo.blah
+	}`
+
+	module19 := `
+	package policy
+
+	import data.acl
+	import input
+
+	default allow = false
+
+	#@rulesSchema=data.acl:schemas.acl-schema,data.acl.foo:default-input-schema
+	allow {
+			access = data.acl[input.user]
+			access[_] == input.operation
+			input.apple.orange.banana
+			data.acl.foo.blah
+	}`
+
+	module20 := `
+	package policy
+
+	import data.acl
+	import input
+
+	default allow = false
+
+	#@rulesSchema=data.acl:schemas.acl-schema
+	allow {
+			access = data.acl[input.user]
+			access[_] == input.operation
+			data.acl.foo
+	}`
+
 	schemaSet := &SchemaSet{ByPath: map[string]interface{}{
 		"default-input-schema":        ischema,
 		"schemas.whocan-input-schema": ischema2,
@@ -1587,9 +1699,16 @@ func TestCheckAnnotationRules(t *testing.T) {
 		"overriding ref with length greater than one and not existing":                    {module: module8, schemaSet: schemaSet, err: "undefined ref: input.apple.banana"},
 		"overriding ref with length greater than one and existing prefix":                 {module: module9, schemaSet: schemaSet, treesize: 2},
 		"overriding ref with length greater than one and existing prefix with type error": {module: module10, schemaSet: schemaSet, err: "undefined ref: input.apple.orange.banana.fruit"},
-		"overriding ref with length greater than one and existing ref":                    {module: module11, schemaSet: schemaSet, err: "undefined ref: input.apple.orange.user"},
+		"overriding ref with length greater than one and existing ref":                    {module: module11, schemaSet: schemaSet, err: "input.apple.orange.user"},
 		"overriding ref of size one":                                                      {module: module12, schemaSet: schemaSet, err: "undefined ref: input.user"},
 		"overriding annotation written with brackets":                                     {module: module13, schemaSet: schemaSet, err: "undefined ref: input.apple.orange.fruit"},
+		"overriding strict":                                                               {module: module14, schemaSet: schemaSet, err: "undefined ref: input.request.object.spec.typo"},
+		"data annotation but no input schema":                                             {module: module15, schemaSet: schemaSet, treesize: 1},
+		"data schema annotation does not overly restrict data expression":                 {module: module16, schemaSet: schemaSet, treesize: 1},
+		"correct defer annotation on another rule has no effect base case":                {module: module17, schemaSet: schemaSet, treesize: 2},
+		"correct defer annotation on another rule has no effect":                          {module: module18, schemaSet: schemaSet, treesize: 1},
+		"overriding ref with data prefix":                                                 {module: module19, schemaSet: schemaSet, err: "data.acl.foo.blah"},
+		"data annotation type error":                                                      {module: module20, schemaSet: schemaSet, err: "data.acl.foo"},
 	}
 
 	for name, tc := range tests {

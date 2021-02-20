@@ -150,6 +150,13 @@ func (tc *typeChecker) checkLanguageBuiltins(env *TypeEnv, builtins map[string]*
 func override(ref Ref, t types.Type, o types.Type, rule *Rule) (types.Type, *Error) {
 	newStaticProps := []*types.StaticProperty{}
 	obj, ok := t.(*types.Object)
+	if !ok {
+		newType, err := getObjectType(ref, o, rule, types.NewDynamicProperty(types.A, types.A))
+		if err != nil {
+			return nil, err
+		}
+		return newType, nil
+	}
 	found := false
 	if ok {
 		staticProps := obj.StaticProperties()
@@ -174,15 +181,15 @@ func override(ref Ref, t types.Type, o types.Type, rule *Rule) (types.Type, *Err
 		}
 	}
 
-	// ref[0] is not a top-level key in staticProps, so it must be added, or type to override is not an object
-	if !found || !ok {
-		keys, err := getKeys(ref, rule)
+	// ref[0] is not a top-level key in staticProps, so it must be added
+	if !found {
+		newType, err := getObjectType(ref, o, rule, obj.DynamicProperties())
 		if err != nil {
 			return nil, err
 		}
-		newStaticProps = append(newStaticProps, types.NewStaticProperty(keys[0], getType(keys, o)))
+		newStaticProps = append(newStaticProps, newType.StaticProperties()...)
 	}
-	return types.NewObject(newStaticProps, nil), nil
+	return types.NewObject(newStaticProps, obj.DynamicProperties()), nil
 }
 
 func getKeys(ref Ref, rule *Rule) ([]interface{}, *Error) {
@@ -197,12 +204,22 @@ func getKeys(ref Ref, rule *Rule) ([]interface{}, *Error) {
 	return keys, nil
 }
 
-func getType(keys []interface{}, o types.Type) types.Type {
+func getObjectTypeRec(keys []interface{}, o types.Type, d *types.DynamicProperty) *types.Object {
 	if len(keys) == 1 {
-		return o
+		staticProps := []*types.StaticProperty{types.NewStaticProperty(keys[0], o)}
+		return types.NewObject(staticProps, d)
 	}
-	staticProps := []*types.StaticProperty{types.NewStaticProperty(keys[1], getType(keys[1:], o))}
-	return types.NewObject(staticProps, nil)
+
+	staticProps := []*types.StaticProperty{types.NewStaticProperty(keys[0], getObjectTypeRec(keys[1:], o, d))}
+	return types.NewObject(staticProps, d)
+}
+
+func getObjectType(ref Ref, o types.Type, rule *Rule, d *types.DynamicProperty) (*types.Object, *Error) {
+	keys, err := getKeys(ref, rule)
+	if err != nil {
+		return nil, err
+	}
+	return getObjectTypeRec(keys, o, d), nil
 }
 
 // Annotations must immediately precede the rule definition and are of the form: #@rulesSchema=<expr>:<schema-key>
@@ -240,9 +257,9 @@ func (tc *typeChecker) checkRule(env *TypeEnv, rule *Rule) {
 				continue
 			}
 			prefixRef, t := env.GetExistingPrefix(ref)
-			if t == nil || prefixRef.Equal(ref) {
+			if t == nil {
 				env.tree.Put(ref, refType)
-				defer env.tree.DeleteKey(ref)
+				defer env.tree.Put(ref, types.A)
 			} else {
 				newType, err := override(ref[len(prefixRef):], t, refType, rule)
 				if err != nil {
