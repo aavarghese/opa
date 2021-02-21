@@ -291,6 +291,23 @@ func (n *typeTreeNode) PutOne(key Value, tpe types.Type) {
 	child.value = tpe
 }
 
+func (n *typeTreeNode) Delete(path Ref) {
+	curr := n
+	for _, term := range path {
+		c, ok := curr.children.Get(term.Value)
+
+		var child *typeTreeNode
+		if !ok {
+			return
+		}
+
+		child = c.(*typeTreeNode)
+		curr.children.Delete(child.key)
+
+		curr = child
+	}
+}
+
 func (n *typeTreeNode) Put(path Ref, tpe types.Type) {
 	curr := n
 	for _, term := range path {

@@ -161,23 +161,24 @@ func override(ref Ref, t types.Type, o types.Type, rule *Rule) (types.Type, *Err
 	if ok {
 		staticProps := obj.StaticProperties()
 		for _, prop := range staticProps {
-			value, err := InterfaceToValue(prop.Key)
+			valueCopy := prop.Value
+			key, err := InterfaceToValue(prop.Key)
 			if err != nil {
 				return nil, NewError(TypeErr, rule.Location, "unexpected error in override: %s", err.Error())
 			}
-			if len(ref) > 0 && ref[0].Value.Compare(value) == 0 {
+			if len(ref) > 0 && ref[0].Value.Compare(key) == 0 {
 				found = true
 				if len(ref) == 1 {
-					prop.Value = o
+					valueCopy = o
 				} else {
-					newVal, err := override(ref[1:], prop.Value, o, rule)
+					newVal, err := override(ref[1:], valueCopy, o, rule)
 					if err != nil {
 						return nil, err
 					}
-					prop.Value = newVal
+					valueCopy = newVal
 				}
 			}
-			newStaticProps = append(newStaticProps, types.NewStaticProperty(prop.Key, prop.Value))
+			newStaticProps = append(newStaticProps, types.NewStaticProperty(prop.Key, valueCopy))
 		}
 	}
 
@@ -259,7 +260,7 @@ func (tc *typeChecker) checkRule(env *TypeEnv, rule *Rule) {
 			prefixRef, t := env.GetExistingPrefix(ref)
 			if t == nil {
 				env.tree.Put(ref, refType)
-				defer env.tree.Put(ref, types.A)
+				defer env.tree.Delete(ref)
 			} else {
 				newType, err := override(ref[len(prefixRef):], t, refType, rule)
 				if err != nil {

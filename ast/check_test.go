@@ -1629,21 +1629,15 @@ func TestCheckAnnotationRules(t *testing.T) {
 	import data.acl
 	import input
 
-	default allow = false
-
-	#@rulesSchema=data.acl:schemas.acl-schema,data.acl.foo:default-input-schema
-	allow {
-			access = data.acl[input.user]
-			access[_] == input.operation
-			input.apple.orange.banana
+	#@rulesSchema=input:default-input-schema,input.apple.banana:default-input-schema
+	deny[msg] {                                                                
+  		input.apple.banana                                                 
 	}
 
-	deny[msg] {
-		input.request.kind.kinds == "Pod"
-		image := input.request.object.spec.containers[_].image
-		not startswith(image, "hooli.com/")
-		data.acl.foo.blah
-	}`
+	deny1[msg] {                                                                
+		input.apple.banana.foo               
+	}
+	`
 
 	module19 := `
 	package policy
@@ -1688,16 +1682,16 @@ func TestCheckAnnotationRules(t *testing.T) {
 		treesize  int
 		err       string
 	}{
-		"data and input annotations":                                                      {module: module1, schemaSet: schemaSet, treesize: 2},
-		"correct data override":                                                           {module: module2, schemaSet: schemaSet, treesize: 2},
+		"data and input annotations":                                                      {module: module1, schemaSet: schemaSet, treesize: 1},
+		"correct data override":                                                           {module: module2, schemaSet: schemaSet, treesize: 1},
 		"incorrect data override":                                                         {module: module3, schemaSet: schemaSet, err: "undefined ref"},
-		"schema not exist in annotation path":                                             {module: module4, schemaSet: schemaSet, err: "Schema does not exist for given path in annotation"},
+		"schema not exist in annotation path":                                             {module: module4, schemaSet: schemaSet, err: "schema does not exist for given path in annotation"},
 		"non ref in annotation":                                                           {module: module5, schemaSet: schemaSet, err: "expected ref but got"},
-		"Ill-structured annotation with bad path":                                         {module: module6, schemaSet: schemaSet, err: "Schema does not exist for given path in annotation"},
+		"Ill-structured annotation with bad path":                                         {module: module6, schemaSet: schemaSet, err: "schema does not exist for given path in annotation"},
 		"Ill-structured (invalid) annotation":                                             {module: module7, schemaSet: schemaSet, err: "Invalid schema annotation"},
-		"empty schema set":                                                                {module: module1, schemaSet: nil, err: "Schemas need to be supplied for the annotation"},
+		"empty schema set":                                                                {module: module1, schemaSet: nil, err: "schemas need to be supplied for the annotation"},
 		"overriding ref with length greater than one and not existing":                    {module: module8, schemaSet: schemaSet, err: "undefined ref: input.apple.banana"},
-		"overriding ref with length greater than one and existing prefix":                 {module: module9, schemaSet: schemaSet, treesize: 2},
+		"overriding ref with length greater than one and existing prefix":                 {module: module9, schemaSet: schemaSet, treesize: 1},
 		"overriding ref with length greater than one and existing prefix with type error": {module: module10, schemaSet: schemaSet, err: "undefined ref: input.apple.orange.banana.fruit"},
 		"overriding ref with length greater than one and existing ref":                    {module: module11, schemaSet: schemaSet, err: "input.apple.orange.user"},
 		"overriding ref of size one":                                                      {module: module12, schemaSet: schemaSet, err: "undefined ref: input.user"},
@@ -1705,8 +1699,8 @@ func TestCheckAnnotationRules(t *testing.T) {
 		"overriding strict":                                                               {module: module14, schemaSet: schemaSet, err: "undefined ref: input.request.object.spec.typo"},
 		"data annotation but no input schema":                                             {module: module15, schemaSet: schemaSet, treesize: 1},
 		"data schema annotation does not overly restrict data expression":                 {module: module16, schemaSet: schemaSet, treesize: 1},
-		"correct defer annotation on another rule has no effect base case":                {module: module17, schemaSet: schemaSet, treesize: 2},
-		"correct defer annotation on another rule has no effect":                          {module: module18, schemaSet: schemaSet, treesize: 1},
+		"correct defer annotation on another rule has no effect base case":                {module: module17, schemaSet: schemaSet, treesize: 1},
+		"correct defer annotation on another rule has no effect":                          {module: module18, schemaSet: schemaSet, treesize: 0},
 		"overriding ref with data prefix":                                                 {module: module19, schemaSet: schemaSet, err: "data.acl.foo.blah"},
 		"data annotation type error":                                                      {module: module20, schemaSet: schemaSet, err: "data.acl.foo"},
 	}
@@ -1730,7 +1724,8 @@ func TestCheckAnnotationRules(t *testing.T) {
 				}
 			}
 
-			typeenv, errors := newTypeChecker().CheckTypes(newTypeChecker().checkLanguageBuiltins(nil, BuiltinMap).WithSchemas(tc.schemaSet), elems)
+			oldTypeEnv := newTypeChecker().checkLanguageBuiltins(nil, BuiltinMap).WithSchemas(tc.schemaSet)
+			typeenv, errors := newTypeChecker().CheckTypes(oldTypeEnv, elems)
 			if len(errors) > 0 {
 				for _, e := range errors {
 					if tc.err == "" || !strings.Contains(e.Error(), tc.err) {
