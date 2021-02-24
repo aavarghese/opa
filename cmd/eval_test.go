@@ -293,7 +293,7 @@ func testReadParamWithSchemaDir(t *testing.T, input string, query string, inputS
 			return
 		}
 
-		if schemaSet == nil || schemaSet.ByPath["input"] == nil || schemaSet.ByPath["schemas.kubernetes.data-schema"] == nil {
+		if schemaSet == nil || schemaSet.ByPath["default-input-schema"] == nil || schemaSet.ByPath["schemas.kubernetes.data-schema"] == nil {
 			err = fmt.Errorf("Expected exactly 2 schemas in schemaSet but got: %v", schemaSet)
 			return
 		}

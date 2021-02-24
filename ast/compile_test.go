@@ -4402,7 +4402,7 @@ func TestParseSchemaWithSchemaBadSchema(t *testing.T) {
 
 func TestWithSchema(t *testing.T) {
 	c := NewCompiler()
-	schemaSet := &SchemaSet{ByPath: map[string]interface{}{"input": objectSchema}}
+	schemaSet := &SchemaSet{ByPath: map[string]interface{}{"default-input-schema": objectSchema}}
 	c.WithSchemas(schemaSet)
 	if c.schemaSet == nil {
 		t.Fatalf("WithSchema did not set the schema correctly in the compiler")
