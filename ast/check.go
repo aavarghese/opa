@@ -258,9 +258,11 @@ func (tc *typeChecker) checkRule(env *TypeEnv, rule *Rule) {
 				continue
 			}
 			prefixRef, t := env.GetExistingPrefix(ref)
+			env = env.wrap()
 			if t == nil {
 				env.tree.Put(ref, refType)
-				defer env.tree.Delete(ref)
+			} else if len(prefixRef) == len(ref) {
+				env.tree.Put(ref, refType)
 			} else {
 				newType, err := override(ref[len(prefixRef):], t, refType, rule)
 				if err != nil {
@@ -268,7 +270,6 @@ func (tc *typeChecker) checkRule(env *TypeEnv, rule *Rule) {
 					continue
 				}
 				env.tree.Put(prefixRef, newType)
-				defer env.tree.Put(prefixRef, t)
 			}
 		}
 	}

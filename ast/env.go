@@ -31,6 +31,12 @@ func (env *TypeEnv) WithSchemas(schemas *SchemaSet) *TypeEnv {
 
 // GetExistingPrefix returns the shortest prefix of ref that exists in env
 func (env *TypeEnv) GetExistingPrefix(ref Ref) (Ref, types.Type) {
+	if len(ref) == 1 {
+		t := env.Get(ref)
+		if t != nil {
+			return ref, t
+		}
+	}
 	for i := 1; i < len(ref); i++ {
 		t := env.Get(ref[:i])
 		if t != nil {
@@ -289,23 +295,6 @@ func (n *typeTreeNode) PutOne(key Value, tpe types.Type) {
 	}
 
 	child.value = tpe
-}
-
-func (n *typeTreeNode) Delete(path Ref) {
-	curr := n
-	for _, term := range path {
-		c, ok := curr.children.Get(term.Value)
-
-		var child *typeTreeNode
-		if !ok {
-			return
-		}
-
-		child = c.(*typeTreeNode)
-		curr.children.Delete(child.key)
-
-		curr = child
-	}
 }
 
 func (n *typeTreeNode) Put(path Ref, tpe types.Type) {
