@@ -558,7 +558,7 @@ func readSchemaBytes(params evalCommandParams) (*ast.SchemaSet, error) {
 				return nil, fmt.Errorf("unable to unmarshal schema: %s", err.Error())
 			}
 
-			return &ast.SchemaSet{ByPath: map[string]interface{}{"input": schema}}, nil
+			return &ast.SchemaSet{ByPath: map[string]interface{}{"input": schema}}, nil //Note: Leaving the path for this as "input", instead of "default-input-schema" (unlike directory impl below)
 		} else if err != nil {
 			return nil, err
 		}
@@ -588,7 +588,7 @@ func readSchemaBytes(params evalCommandParams) (*ast.SchemaSet, error) {
 				}
 
 				if info.Name() == defaultInputSchemaFileName {
-					schemaSet["input"] = schema
+					schemaSet["default-input-schema"] = schema
 				} else {
 					subDirs := strings.SplitAfterN(filepath.Dir(path), parentDir, 2)[1] //get rest of the path after main schema directory
 					fileNameNoExt := strings.TrimSuffix(info.Name(), filepath.Ext(info.Name()))

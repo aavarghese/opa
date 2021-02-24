@@ -1036,7 +1036,7 @@ func (c *Compiler) setSchemas() {
 			c.TypeEnv.WithSchemas(c.schemaSet)
 
 			// Second, set the schema for the input globally
-			schema := c.schemaSet.ByPath["input"]
+			schema := c.schemaSet.ByPath["default-input-schema"]
 			if schema != nil {
 				newtype, err := setTypesWithSchema(schema)
 				if err != nil {
