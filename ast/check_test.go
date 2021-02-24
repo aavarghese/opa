@@ -1698,7 +1698,7 @@ func TestCheckAnnotationRules(t *testing.T) {
 		"overriding annotation written with brackets":                                     {module: module13, schemaSet: schemaSet, err: "undefined ref: input.apple.orange.fruit"},
 		"overriding strict":                                                               {module: module14, schemaSet: schemaSet, err: "undefined ref: input.request.object.spec.typo"},
 		"data annotation but no input schema":                                             {module: module15, schemaSet: schemaSet, treesize: 1},
-		"data schema annotation does not overly restrict data expression":                 {module: module16, schemaSet: schemaSet, treesize: 1},
+		"data schema annotation does not overly restrict data expression":                 {module: module16, schemaSet: schemaSet, treesize: 0},
 		"correct defer annotation on another rule has no effect base case":                {module: module17, schemaSet: schemaSet, treesize: 1},
 		"correct defer annotation on another rule has no effect":                          {module: module18, schemaSet: schemaSet, treesize: 0},
 		"overriding ref with data prefix":                                                 {module: module19, schemaSet: schemaSet, err: "data.acl.foo.blah"},
