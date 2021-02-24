@@ -29,8 +29,8 @@ func (env *TypeEnv) WithSchemas(schemas *SchemaSet) *TypeEnv {
 	return env
 }
 
-// GetExistingPrefix returns the shortest prefix of ref that exists in env
-func (env *TypeEnv) GetExistingPrefix(ref Ref) (Ref, types.Type) {
+// GetPrefix returns the shortest prefix of ref that exists in env
+func (env *TypeEnv) GetPrefix(ref Ref) (Ref, types.Type) {
 	if len(ref) == 1 {
 		t := env.Get(ref)
 		if t != nil {

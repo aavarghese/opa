@@ -257,7 +257,7 @@ func (tc *typeChecker) checkRule(env *TypeEnv, rule *Rule) {
 				tc.err([]*Error{err})
 				continue
 			}
-			prefixRef, t := env.GetExistingPrefix(ref)
+			prefixRef, t := env.GetPrefix(ref)
 			env = env.wrap()
 			if t == nil {
 				env.tree.Put(ref, refType)
