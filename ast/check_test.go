@@ -1707,7 +1707,7 @@ func TestCheckAnnotationRules(t *testing.T) {
 
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
-			mod, err := ParseModule("test.rego", tc.module)
+			mod, err := ParseModule("test.rego", tc.module, true)
 			if err != nil {
 				if !strings.Contains(err.Error(), tc.err) {
 					t.Fatalf("Unexpected parse module error when processing annotations: %v", err)

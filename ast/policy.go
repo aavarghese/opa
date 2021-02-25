@@ -135,8 +135,8 @@ type (
 
 	// SchemaAnnotation contains information about a schema
 	SchemaAnnotation struct {
-		Name   string
-		Schema string
+		Name   string `json:"name"`
+		Schema string `json:"schema"`
 	}
 
 	// Package represents the namespace of the documents produced

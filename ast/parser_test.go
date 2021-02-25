@@ -2772,7 +2772,7 @@ func TestGetAnnotation(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.note, func(t *testing.T) {
-			mod, err := ParseModule("test.rego", tc.module)
+			mod, err := ParseModule("test.rego", tc.module, true)
 			if err != nil {
 				if tc.expError == "" || !strings.Contains(err.Error(), tc.expError) {
 					t.Fatalf("Unexpected parse error when getting annotations: %v", err)

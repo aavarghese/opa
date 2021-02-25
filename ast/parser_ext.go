@@ -417,8 +417,15 @@ func ParseImports(input string) ([]*Import, error) {
 // ParseModule returns a parsed Module object.
 // For details on Module objects and their fields, see policy.go.
 // Empty input will return nil, nil.
-func ParseModule(filename, input string) (*Module, error) {
-	stmts, comments, err := ParseStatements(filename, input)
+func ParseModule(filename, input string, processAnnotation ...bool) (*Module, error) {
+	var stmts []Statement
+	var comments []*Comment
+	var err error
+	if len(processAnnotation) == 1 {
+		stmts, comments, err = ParseStatements(filename, input, processAnnotation[0])
+	} else {
+		stmts, comments, err = ParseStatements(filename, input)
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -565,9 +572,13 @@ func (a commentKey) Compare(other commentKey) int {
 
 // ParseStatements returns a slice of parsed statements.
 // This is the default return value from the parser.
-func ParseStatements(filename, input string) ([]Statement, []*Comment, error) {
+func ParseStatements(filename, input string, processAnnotation ...bool) ([]Statement, []*Comment, error) {
 
-	stmts, comment, errs := NewParser().WithFilename(filename).WithReader(bytes.NewBufferString(input)).Parse()
+	parser := NewParser().WithFilename(filename).WithReader(bytes.NewBufferString(input))
+	if len(processAnnotation) == 1 {
+		parser.WithProcessAnnotation(processAnnotation[0])
+	}
+	stmts, comment, errs := parser.Parse()
 
 	if len(errs) > 0 {
 		return nil, nil, errs

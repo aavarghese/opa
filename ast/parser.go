@@ -20,16 +20,17 @@ import (
 // can do efficient shallow copies of these values when doing a
 // save() and restore().
 type state struct {
-	s         *scanner.Scanner
-	lastEnd   int
-	skippedNL bool
-	tok       tokens.Token
-	tokEnd    int
-	lit       string
-	loc       Location
-	errors    Errors
-	comments  []*Comment
-	wildcard  int
+	s                 *scanner.Scanner
+	lastEnd           int
+	skippedNL         bool
+	tok               tokens.Token
+	tokEnd            int
+	lit               string
+	loc               Location
+	errors            Errors
+	comments          []*Comment
+	wildcard          int
+	processAnnotation bool
 }
 
 func (s *state) String() string {
@@ -74,6 +75,13 @@ func (p *Parser) WithFilename(filename string) *Parser {
 // use as its source.
 func (p *Parser) WithReader(r io.Reader) *Parser {
 	p.r = r
+	return p
+}
+
+// WithProcessAnnotation enables or disables the processing of
+// annotations by the Parser
+func (p *Parser) WithProcessAnnotation(processAnnotation bool) *Parser {
+	p.s.processAnnotation = processAnnotation
 	return p
 }
 
@@ -159,14 +167,16 @@ func (p *Parser) Parse() ([]Statement, []*Comment, Errors) {
 		if rules := p.parseRules(); rules != nil {
 			for i := range rules {
 				stmts = append(stmts, rules[i])
-				// Append schema annotation to rule if there is one
-				ruleLoc := rules[i].Location.Row
-				annot, err := p.getAnnotation(ruleLoc - 1)
-				if err != nil {
-					p.error(rules[i].Location, err.Error())
-				}
-				if annot != nil {
-					rules[i].Annotations = annot
+				// Append schema annotation to rule if there is one, and if processAnnotation state is on
+				if p.s.processAnnotation {
+					ruleLoc := rules[i].Location.Row
+					annot, err := p.getAnnotation(ruleLoc - 1)
+					if err != nil {
+						p.error(rules[i].Location, err.Error())
+					}
+					if annot != nil {
+						rules[i].Annotations = annot
+					}
 				}
 			}
 			continue
